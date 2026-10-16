@@ -9,6 +9,10 @@ const textSchema = (description) => ({
   type: "string",
   description,
 });
+const boundedTextSchema = (description, maxLength) => ({
+  ...textSchema(description),
+  maxLength,
+});
 
 const nonEmptyTextSchema = (description) => ({
   ...textSchema(description),
@@ -843,7 +847,7 @@ const impactsSchema = {
   type: "object",
   description: "World-state effects; include only the arrays that apply.",
   properties: {
-    actionIds: stringArraySchema("Player action ids this event resolves."),
+    actionIds: stringArraySchema("Every player order this event resolves. One event may cover several related orders; include every corresponding order id rather than dropping outcomes to meet the event ceiling."),
     createdChats: {
       type: "array",
       description: "Chats this event opens toward the player.",
@@ -1144,14 +1148,16 @@ export const JUMP_FORWARD_SCHEMA = {
   properties: {
     events: {
       type: "array",
-      description: "Events occurring during the simulated period.",
+      description:
+        "Chronological events occurring during the simulated period. The hard maximum of 20 applies to AI-created events across the entire requested jump; scenario-scripted events may be added by the engine outside that budget.",
+      maxItems: 20,
       items: eventSchema,
     },
     stopDate: textSchema("Date at which the simulation stops."),
     summary: textSchema("Concise summary of the period and its strategic consequences."),
     clearActions: {
       type: "boolean",
-      description: "Whether planned player actions were resolved by this jump. Defaults to true (resolved) when omitted.",
+      description: "Whether this completed jump has produced the outcome of the currently planned player orders. A completed jump consumes each plan once; impacts.actionIds links an order to the event that resolved it.",
     },
     // No scene (the `catalyst` a skip used to write): a scene is played only
     // from an interactive event a skip offers, which costs the skip nothing
@@ -1384,8 +1390,8 @@ const pregameEventSchema = {
   description: "One dated historical event from BEFORE the game's start date.",
   properties: {
     date: textSchema("Date the event occurred, strictly before the game start date."),
-    title: textSchema("Concise event headline."),
-    description: textSchema("Specific narrative description and its consequences."),
+    title: boundedTextSchema("Concise event headline.", 140),
+    description: boundedTextSchema("Specific, concise narrative description and its consequences.", 700),
     importance: textSchema("Importance label, normally minor or major."),
     kind: textSchema("Event category, such as world, player, diplomacy, or military."),
     tags: eventTagsSchema,
@@ -1413,17 +1419,17 @@ const canonicalUpdateSchema = {
       description:
         "Semantic kind code. Use relation; storyline:active; storyline:dormant; war:start; war:join-a; war:join-b; war:leave; war:ceasefire; war:resume; war:end; agreement:start.",
     },
-    id: { type: "string", description: "Stable storyline/war/agreement id, or empty for a relation." },
+    id: boundedTextSchema("Stable storyline/war/agreement id, or empty for a relation.", 100),
     polities: {
       type: "array",
       description:
         "Primary polities. Relation: exactly [A,B]. Storyline: participants. War: actors / side A. Agreement: parties.",
-      items: { type: "string" },
+      items: boundedTextSchema("A current canonical polity name.", 120),
     },
     opponents: {
       type: "array",
       description: "War opponents / side B; empty for non-war items.",
-      items: { type: "string" },
+      items: boundedTextSchema("A current canonical polity name.", 120),
     },
     score: {
       type: "integer",
@@ -1441,18 +1447,12 @@ const canonicalUpdateSchema = {
       type: "string",
       description: "Storyline start date YYYY-MM-DD when known; empty for other kinds.",
     },
-    category: {
-      type: "string",
-      description: "Storyline process kind (war, crisis, revolution, diplomacy, politics, economy) or agreement type (alliance, mutual_defense, guarantee, non_aggression, friendship_consultation, trade_economic, military_cooperation, military_access, neutrality, peace_settlement, other); otherwise empty.",
-    },
-    title: {
-      type: "string",
-      description: "Agreement or storyline title when relevant; otherwise empty.",
-    },
-    detail: {
-      type: "string",
-      description: "Relation summary, war note, agreement terms, or storyline state (what is true now and why the process is unresolved).",
-    },
+    category: boundedTextSchema(
+      "Storyline process kind or agreement type; otherwise empty.",
+      64,
+    ),
+    title: boundedTextSchema("Short agreement or storyline title when relevant; otherwise empty.", 140),
+    detail: boundedTextSchema("Concise relation summary, war note, agreement terms, or current storyline state.", 320),
   },
   required: [
     "kind",
@@ -1472,21 +1472,21 @@ const canonicalUpdateSchema = {
 
 export const PREGAME_HISTORY_SCHEMA = {
   type: "object",
-  description: "The pre-game backstory: the events that led up to the start of the campaign.",
+  description: "The pre-game backstory: concise, readable events and only essential Round-One ledger state.",
   properties: {
     events: {
       type: "array",
-      description: "Chronological events from before round one, oldest first.",
+      description: "Chronological pre-game events, oldest first; prefer 4-6 concise event cards.",
       minItems: 1,
-      maxItems: 12,
+      maxItems: 6,
       items: pregameEventSchema,
     },
-    summary: textSchema("One-paragraph summary of the era leading into the start date."),
+    summary: boundedTextSchema("Concise summary of the era leading into the start date.", 450),
     canonicalUpdates: {
       type: "array",
       description:
-        "Wars, bilateral relations and formal agreements ALREADY TRUE on the start date. Empty array only when no such Day-1 state exists. The engine dispatches and binds every item.",
-      maxItems: 32,
+        "Essential wars, active agreements, and at most a few material central bilateral relations ALREADY TRUE on the start date. Leave unimportant/uncertain relations out; do not emit a full global relationship matrix. Empty is valid when no reliable Day-1 state exists. The engine dispatches and binds every item.",
+      maxItems: 16,
       items: canonicalUpdateSchema,
     },
   },
@@ -3232,6 +3232,9 @@ const validateAgainstSchema = (schema, value, path) => {
   if (schema.type === "string" && Number.isFinite(schema.minLength) && value.length < schema.minLength) {
     return `${path} must contain at least ${schema.minLength} character${schema.minLength === 1 ? "" : "s"}.`;
   }
+  if (schema.type === "string" && Number.isFinite(schema.maxLength) && value.length > schema.maxLength) {
+    return `${path} must contain at most ${schema.maxLength} characters.`;
+  }
 
   if (schema.type === "array") {
     if (Number.isFinite(schema.minItems) && value.length < schema.minItems) {
@@ -3407,7 +3410,37 @@ const UNIT_STATUSES = new Set(unitSchema.properties.status.enum);
 const UNIT_POSTURES = new Set(unitSchema.properties.posture.enum);
 
 const normalizeUnitOperationShape = (entry) => {
-  if (!isPlainRecord(entry) || !isPlainRecord(entry.unit) || entry.unit.status === undefined) return entry;
+  if (!isPlainRecord(entry)) return entry;
+  const op = String(entry.op ?? "").trim().toLowerCase();
+  if (op === "spawn" && isPlainRecord(entry.unit)) {
+    const { place, where: unitWhere, location, ...unit } = entry.unit;
+    const unitAt = firstDefinedKey(entry.unit, ["at", "place", "where", "location"]);
+    if (unit.at === undefined && typeof unitAt === "string" && unitAt.trim()) unit.at = unitAt;
+    delete unit.place;
+    delete unit.where;
+    delete unit.location;
+    for (const [target, aliases] of [["lng", ["lon", "longitude"]], ["lat", ["latitude"]]]) {
+      if (unit[target] === undefined) {
+        const value = firstDefinedKey(unit, aliases);
+        if (value !== undefined) unit[target] = coordinateNumber(value);
+      }
+    }
+    if (unit.status === undefined) return { ...entry, unit };
+  }
+  if (op === "move") {
+    const { place, where, location, ...next } = entry;
+    const destination = firstDefinedKey(entry, ["at", "place", "where", "location"]);
+    if ((next.at === undefined || next.at === null || next.at === "")
+      && typeof destination === "string" && destination.trim()) next.at = destination;
+    for (const [target, aliases] of [["toLng", ["lng", "lon", "longitude"]], ["toLat", ["lat", "latitude"]]]) {
+      if (next[target] === undefined) {
+        const value = firstDefinedKey(next, aliases);
+        if (value !== undefined) next[target] = coordinateNumber(value);
+      }
+    }
+    return next;
+  }
+  if (!isPlainRecord(entry.unit) || entry.unit.status === undefined) return entry;
   const status = String(entry.unit.status ?? "").trim().toLowerCase();
   if (UNIT_STATUSES.has(status)) return { ...entry, unit: { ...entry.unit, status } };
   const { status: _status, ...unit } = entry.unit;

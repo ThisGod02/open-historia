@@ -95,6 +95,37 @@ test("a second rename keeps every former name, and a name that only differs in c
   assert.equal(findPolityKey(world().polityOverrides, "SYLDAVIA"), "Syldavia");
 });
 
+test("a Cyrillic rename re-keys region owners, colors and country metadata", () => {
+  const source = {
+    polityOverrides: {
+      "Австрийская империя": {
+        code: "Австрийская империя",
+        name: "Австрийская империя",
+        aliases: ["Австрия"],
+        color: "#D4AF37",
+        note: "",
+      },
+    },
+    regionOwnershipOverrides: {
+      Berlin: "Австрийская империя",
+      Vienna: "Австрийская империя",
+    },
+    regionClaimants: { Berlin: ["Австрийская империя"] },
+    units: [{ id: "u1", ownerCode: "Австрийская империя" }],
+    wars: [{ id: "w1", sideA: ["Австрийская империя"], sideB: ["German Empire"] }],
+  };
+
+  const renamed = renamePolityInWorld(source, "австрийская империя", "Священная Римская империя");
+  assert.equal(renamed.from, "Австрийская империя");
+  assert.equal(renamed.world.regionOwnershipOverrides.Berlin, "Священная Римская империя");
+  assert.equal(renamed.world.regionOwnershipOverrides.Vienna, "Священная Римская империя");
+  assert.deepEqual(renamed.world.regionClaimants.Berlin, ["Священная Римская империя"]);
+  assert.equal(renamed.world.units[0].ownerCode, "Священная Римская империя");
+  assert.deepEqual(renamed.world.wars[0].sideA, ["Священная Римская империя"]);
+  assert.ok(samePolityName("Свяще́нная Римская империя", "Священная-Римская империя"));
+  assert.ok(!samePolityName("", ""), "empty names never alias each other");
+});
+
 test("a rename never merges two countries, and needs both names", () => {
   assert.throws(() => renamePolityInWorld(world(), "Borduria", "Syldavia"), /already the name of another polity/);
   assert.throws(() => renamePolityInWorld(world(), "", "X"), /needs the polity's current name/);

@@ -164,6 +164,29 @@ test("a territorial event is asked about under its own position, with the places
   assert.equal(input.territorialState.placesTheseEventsName[0].controller, "Ukraine");
 });
 
+test("an explicit no-change report cannot leave a contest or accept a new contest", async () => {
+  const event = {
+    title: "The front remains unchanged",
+    description: "The front did not change and neither side captured territory.",
+    impacts: {
+      regionControlOps: [{ op: "contest", regionId: "224", fromCode: "Rome", actorCode: "Italy" }],
+    },
+  };
+  const result = await directGeneratedTerritoryOps({
+    events: [event],
+    world: handDrawnWorld(4),
+    analyzeBatch: async () => ({
+      eventOrders: [{
+        eventIndex: 0,
+        regionControlOps: [{ op: "contest", regionId: "224", fromCode: "Rome", actorCode: "Italy" }],
+      }],
+    }),
+  });
+  assert.deepEqual(result[0].impacts.regionControlOps, []);
+  // Diagnostics are printed in the native director group; an existing invalid
+  // contest is stripped even if the analyzer redundantly proposes it again.
+});
+
 test("a place reader that fails costs the places, never the pass", async () => {
   const input = await buildTerritoryDirectorInput({
     events: EVENTS, world: handDrawnWorld(4), findPlaces: async () => { throw new Error("catalog unavailable"); },

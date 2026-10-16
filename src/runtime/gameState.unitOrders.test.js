@@ -3,7 +3,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { haversineKm, normalizeWorldState, pruneSatisfiedUnitOrders } from "./gameState.js";
+import { applyUnitOpBatch, haversineKm, normalizeEvents, normalizeWorldState, pruneSatisfiedUnitOrders } from "./gameState.js";
 
 const unit = (over = {}) => ({
   id: "unit-1",
@@ -91,6 +91,50 @@ test("normalizeWorldState: an entry missing unitId or coordinates is dropped ent
     pendingUnitOrders: [{ toLng: 10, toLat: 10 }, { unitId: "unit-1" }, "not an object"],
   });
   assert.deepEqual(world.pendingUnitOrders, []);
+});
+
+test("normalizeWorldState: the null-island placeholder is not kept as a march destination", () => {
+  const world = normalizeWorldState({
+    units: [unit({ id: "unit-1", lng: 12.7, lat: 46.1, status: "moving" })],
+    pendingUnitOrders: [{ id: "bad-order", unitId: "unit-1", kind: "move", toLng: 0, toLat: 0 }],
+  });
+  assert.deepEqual(world.pendingUnitOrders, []);
+});
+
+test("normalizeEvents preserves a named move until the map placement pass can resolve it", () => {
+  const [event] = normalizeEvents([{
+    title: "Бои у Удине",
+    impacts: { unitOps: [{ op: "move", unitId: "unit-1", at: "Удине" }] },
+  }]);
+  assert.deepEqual(event.impacts.unitOps, [{
+    op: "move",
+    unitId: "unit-1",
+    at: "Удине",
+    posture: "",
+    regionId: "",
+    note: "",
+  }]);
+});
+
+test("an unresolved textual move cannot change a unit or create a standing order", () => {
+  const start = [unit({ lng: 12.7, lat: 46.1 })];
+  const result = applyUnitOpBatch(start, [], [{ op: "move", unitId: "unit-1", at: "an unknown place" }], {
+    elapsedDays: 30,
+    gameDate: "1912-10-14",
+  });
+  assert.deepEqual([result.units[0].lng, result.units[0].lat], [12.7, 46.1]);
+  assert.deepEqual(result.orders, []);
+});
+
+test("an explicit numeric move to 0,0 is rejected as an unusable destination", () => {
+  const result = applyUnitOpBatch(
+    [unit({ lng: 12.7, lat: 46.1 })],
+    [],
+    [{ op: "move", unitId: "unit-1", toLng: 0, toLat: 0 }],
+    { elapsedDays: 1, gameDate: "1912-10-14" },
+  );
+  assert.deepEqual([result.units[0].lng, result.units[0].lat], [12.7, 46.1]);
+  assert.deepEqual(result.orders, []);
 });
 
 test("normalizeWorldState: defaults pendingUnitOrders to an empty array", () => {

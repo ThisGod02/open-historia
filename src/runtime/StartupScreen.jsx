@@ -378,9 +378,9 @@ const StartupScreen = ({
       {/* Title row */}
       <div className="ss-top-row">
       <div className="ss-identity">
-      <img className="ss-logo" src="/logo.png" alt="Open Historia" />
+      <img className="ss-logo" src="/logo.png" alt="Pax Historia" />
       <div className="ss-title-block">
-      <div className="ss-game-name">Open Historia</div>
+      <div className="ss-game-name">Pax Historia</div>
       <div className="ss-title">
       {timedOut ? "Continuing…" : "Preparing the World"}
       </div>

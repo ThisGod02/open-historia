@@ -47,16 +47,13 @@ const DEFAULT_SCENARIO_ID = "default";
 const DEFAULT_GAME_ID = "default";
 
 // ---------------------------------------------------------------------------
-// The built-in scenario ("Modern Day") ships INSIDE the app as a seed directory
+// The built-in scenario ("Мир 1910") ships INSIDE the app as a seed directory
 // and is copied into the writable data dir: on a true first run, and again
 // whenever the packaged seed carries a newer map than the install has (the
 // world.json `builtInMap` stamp). server/data is runtime state only.
 //
-// Its map is a hand-drawn world with its own cities, not the stock GADM world.
-// The GADM world lives on as the STOCK geometry that every scenario without a
-// map of its own renders on — the hub's re-ownership presets key their
-// ownership by GADM ids — downloaded by scripts/fetch-map-assets.mjs to
-// server/data/stock/regions.geojson.
+// Its map is the adapted 1910 political map. The stock GADM geometry remains
+// available for imported and hub scenarios that do not carry their own map.
 // ---------------------------------------------------------------------------
 const BUILT_IN_SEED_DIR = path.join(PROJECT_ROOT, "server", "seed", "default");
 const STOCK_DIR = path.join(SERVER_DATA_DIR, "stock");
@@ -70,6 +67,7 @@ const BUILT_IN_SEED_FILES = [
   "world.json",
   "game.json",
   "colors.json",
+  "stats.json",
   "cover-image.bin",
   "regions.geojson",
   "cities.geojson",
@@ -78,6 +76,7 @@ const BUILT_IN_SEED_FILES = [
   "storage/chat.json",
   "storage/events.json",
 ];
+const BUILT_IN_SEED_CONTENT_FILES = [...BUILT_IN_SEED_FILES, "scenario-data-placeholder.txt"];
 // Files an older copy of the scenario can carry that the seed does not. They
 // go when the scenario is reset to the seed, or the old map would bleed through.
 const BUILT_IN_RESET_STALE_FILES = [
@@ -322,7 +321,7 @@ const canonicalizeGameCountry = (game, world) => {
   if (!game || typeof game !== "object" || Array.isArray(game) || !game.country) return game;
   return { ...game, country: resolveOwnerRef(game.country, world) };
 };
-const BUILT_IN_SCENARIO_DEFAULT_DATE = "2016-01-01";
+const BUILT_IN_SCENARIO_DEFAULT_DATE = "1910-01-01";
 // Bundles are files strangers swap, so the schema string is a compatibility gate
 // and the ONLY one: `version` below is written and read by nobody, on either side.
 //
@@ -361,12 +360,12 @@ const accentOrDefault = (raw, fallback) => {
 
 const DEFAULT_SCENARIO_META = {
   accentColor: "#2bc1f3",
-  description: "Server-backed base scenario",
+  description: "Историческая кампания на региональной карте Open Historia, старт 1 января 1910 года.",
   eyebrow: "Scenario",
-  heroSubtitle: "Editable server-backed scenario template.",
-  heroTitle: "Modern Day",
-  name: "Modern Day",
-  subtitle: "Base template",
+  heroSubtitle: "Выберите державу и меняйте ход истории решениями, дипломатией и событиями.",
+  heroTitle: "Мир на пороге перемен",
+  name: "Мир 1910",
+  subtitle: "Open Historia · историческая карта",
 };
 
 const DEFAULT_GAME_META = {
@@ -374,10 +373,10 @@ const DEFAULT_GAME_META = {
   description: "Active playable game",
   eyebrow: "Game",
   heroSubtitle: "Playable campaign session",
-  heroTitle: "Modern Day",
-  name: "Modern Day Session",
+  heroTitle: "Мир на пороге перемен",
+  name: "Кампания 1910",
   scenarioId: DEFAULT_SCENARIO_ID,
-  subtitle: "Current campaign",
+  subtitle: "Старт 1 января 1910",
 };
 
 const STORAGE_JSON_ASSET_FILES = {
@@ -519,6 +518,7 @@ const TEMPLATE_WORLD_OVERRIDE_KEYS = [
   "regionSovereigntyOverrides",
   "simulationRules",
   "startingTimelineText",
+  "statsSheet",
 ];
 
 const COLORS_ASSET_CANDIDATES = [
@@ -1285,8 +1285,12 @@ const seedBuiltInScenarioFiles = (stamp) => {
   const dir = getScenarioDirectory(DEFAULT_SCENARIO_ID);
   ensureDirectory(dir);
   ensureDirectory(path.join(dir, "storage"));
-  for (const relative of BUILT_IN_SEED_FILES) copySeedFile(relative, dir);
-  for (const relative of BUILT_IN_RESET_STALE_FILES) removeFileIfPresent(path.join(dir, relative));
+  for (const relative of BUILT_IN_SEED_CONTENT_FILES) copySeedFile(relative, dir);
+  for (const relative of [...BUILT_IN_RESET_STALE_FILES, ...BUILT_IN_SEED_FILES]) {
+    if (!fs.existsSync(path.join(BUILT_IN_SEED_DIR, relative))) {
+      removeFileIfPresent(path.join(dir, relative));
+    }
+  }
   const worldPath = getScenarioJsonPath(DEFAULT_SCENARIO_ID, "world");
   const world = readJsonFile(worldPath, {});
   if (world.builtInMap !== stamp) writeJsonFile(worldPath, { ...world, builtInMap: stamp });
@@ -1391,7 +1395,7 @@ const refreshBuiltInContent = (stamp) => {
     for (const gameId of gamesOnBuiltIn) keepScenarioJsonForGame(gameId, DEFAULT_SCENARIO_ID);
   }
   seedBuiltInScenarioFiles(stamp);
-  console.warn(`[built-in scenario] Modern Day content updated to revision ${readInstalledBuiltInRevision()} (${stamp})`);
+  console.warn(`[built-in scenario] Мир 1910 content updated to revision ${readInstalledBuiltInRevision()} (${stamp})`);
 };
 
 const seedRegionsBytes = () => {
@@ -1438,8 +1442,8 @@ const syncBuiltInScenarioFromSeed = () => {
     builtInScenarioSynced = true;
     console.warn(
       completing
-        ? `[built-in scenario] completed Modern Day (${stamp}): its record was missing beside the map`
-        : `[built-in scenario] seeded Modern Day (${stamp}) into ${scenarioDir}`,
+        ? `[built-in scenario] completed Мир 1910 (${stamp}): its record was missing beside the map`
+        : `[built-in scenario] seeded Мир 1910 (${stamp}) into ${scenarioDir}`,
     );
     return;
   }
@@ -1455,14 +1459,14 @@ const syncBuiltInScenarioFromSeed = () => {
   if (gamesOnBuiltIn.length || touched) {
     const forkId = forkBuiltInScenarioForExistingGames(gamesOnBuiltIn, ownRegions);
     console.warn(
-      `[built-in scenario] kept the previous Modern Day as "${forkId}" for ${gamesOnBuiltIn.length} campaign(s)${touched ? " and the player's edits" : ""}`,
+      `[built-in scenario] kept the previous campaign map as "${forkId}" for ${gamesOnBuiltIn.length} campaign(s)${touched ? " and the player's edits" : ""}`,
     );
   } else if (ownRegions) {
     removeFileIfPresent(ownRegions);
   }
   seedBuiltInScenarioFiles(stamp);
   builtInScenarioSynced = true;
-  console.warn(`[built-in scenario] Modern Day updated to ${stamp}`);
+  console.warn(`[built-in scenario] Мир 1910 updated to ${stamp}`);
 };
 
 const ensureDefaultScenario = () => {

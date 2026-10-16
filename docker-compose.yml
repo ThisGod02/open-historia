@@ -1,0 +1,25 @@
+services:
+  pax:
+    build: .
+    ports:
+      - "127.0.0.1:${PORT:-8080}:8080"
+    environment:
+      PORT: 8080
+      OH_HOST: 0.0.0.0
+      OH_DATA_DIR: /data
+      OH_ASSETS_DIR: /assets
+      OH_UI_LANGUAGE: ru
+      # Only relay requests arriving through this localhost-bound app host.
+      # Direct container-network access to the AI proxy remains disabled.
+      OH_RELAY_ALLOWED_HOSTS: "localhost:${PORT:-8080},127.0.0.1:${PORT:-8080}"
+      AI_BASE_URL: "${AI_BASE_URL:-https://ru.cheapvibecode.ru/v1}"
+      AI_API_KEY: "${AI_API_KEY:-}"
+      AI_MODEL: "${AI_MODEL:-deepseek-v4.1-flash}"
+    volumes:
+      - pax-oh-data:/data
+      - pax-oh-map-assets:/assets
+    restart: unless-stopped
+
+volumes:
+  pax-oh-data:
+  pax-oh-map-assets:

@@ -30,6 +30,11 @@ const FORMER_GEMINI_DEFAULT = "gemini-3.5-flash-lite";
 // quicker and better. A model the player types is theirs instead.
 export const OPENAI_DEFAULT_MODEL = "gpt-6-luna";
 
+// The bundled CheapVibeCode gateway speaks the OpenAI chat-completions API.
+// Its credentials arrive from `/api/ai/bootstrap` server defaults, which keeps
+// the actual key out of the built bundle and lets Docker provide it.
+export const DEFAULT_OPENAI_COMPATIBLE_ENDPOINT = "http://localhost:11434/v1";
+
 export const PROVIDER_OPTIONS = [
     {
         value: "gemini",
@@ -104,7 +109,7 @@ const PROVIDER_SETTINGS = {
         endpoint: {
             storageKey: "openai_compatible_endpoint",
             legacyKeys: ["custom_api_endpoint"],
-            defaultValue: "http://localhost:11434/v1",
+            defaultValue: DEFAULT_OPENAI_COMPATIBLE_ENDPOINT,
         },
         model: {
             storageKey: "openai_compatible_model",
@@ -540,7 +545,10 @@ function resetToGeminiDefaultChain() {
 const ensureMigrated = () => {
     if (typeof localStorage === "undefined") return;
     if (localStorage.getItem(FALLBACK_LIST_KEY) === null) {
-        migrateFromProviderSettings();
+        seedBundledProvider();
+        if (localStorage.getItem(FALLBACK_LIST_KEY) === null) {
+            migrateFromProviderSettings();
+        }
         // A list built just now already follows this version's defaults. The
         // one-time reset below is for lists an older version made.
         localStorage.setItem(GEMINI_RESET_KEY, "1");
@@ -548,6 +556,90 @@ const ensureMigrated = () => {
     upgradeFormerGeminiDefault();
     resetToGeminiDefaultChain();
 };
+
+// Seed/update the server-provided gateway without going through public store
+// methods: those call ensureMigrated again while the Fallback list may not yet
+// exist. Existing non-CVC entries stay in their order; CheapVibeCode is always
+// moved to the first slot because it is this deployment's configured default.
+function seedBundledProvider(configured = readJsonSetting("ai_bootstrap_config", null)) {
+    if (!configured?.endpoint || !configured?.apiKey || !configured?.model) return false;
+    if (localStorage.getItem(FALLBACK_LIST_KEY) === null) {
+        migrateFromProviderSettings();
+        localStorage.setItem(GEMINI_RESET_KEY, "1");
+    }
+
+    const endpointKey = String(configured.endpoint).trim().replace(/\/$/, "");
+    const connections = readJsonSetting(CONNECTIONS_KEY, []).map(normalizeConnection);
+    const list = readJsonSetting(FALLBACK_LIST_KEY, []).map(normalizeEntry);
+    const existing = connections.find((connection) => (
+        connection.provider === "openai-compatible"
+        && String(connection.endpoint).trim().replace(/\/$/, "") === endpointKey
+    ));
+    let connection = existing;
+    let changed = false;
+    const priorSuggestedModel = existing?.suggestedModel ?? "";
+    const modelNameChanges = new Set();
+    if (!connection) {
+        connection = normalizeConnection({
+            provider: "openai-compatible",
+            name: "CheapVibeCode",
+            apiKey: configured.apiKey,
+            endpoint: configured.endpoint,
+            suggestedModel: configured.model,
+        });
+        connections.push(connection);
+        changed = true;
+    } else {
+        if (connection.name !== "CheapVibeCode") { connection.name = "CheapVibeCode"; changed = true; }
+        if (connection.apiKey !== configured.apiKey) { connection.apiKey = configured.apiKey; changed = true; }
+        if (connection.endpoint !== configured.endpoint) { connection.endpoint = configured.endpoint; changed = true; }
+        if (connection.suggestedModel !== configured.model) { connection.suggestedModel = configured.model; changed = true; }
+    }
+
+    const connectionEntries = list.filter((entry) => entry.connectionId === connection.id);
+    let primaryEntry = connectionEntries[0];
+    if (!primaryEntry) {
+        primaryEntry = normalizeEntry({ connectionId: connection.id, model: configured.model });
+        list.unshift(primaryEntry);
+        changed = true;
+    } else if (!primaryEntry.model.trim()) {
+        primaryEntry.model = configured.model;
+        changed = true;
+    } else if (
+        existing
+        && primaryEntry.model.trim() === String(priorSuggestedModel).trim()
+        && primaryEntry.model.trim() !== configured.model
+    ) {
+        // When the server changes its bundled default, move entries that still
+        // follow that default. A model the player manually selected is preserved.
+        modelNameChanges.add(primaryEntry.id);
+        primaryEntry.model = configured.model;
+        changed = true;
+    }
+    const currentIndex = list.findIndex((entry) => entry.id === primaryEntry.id);
+    if (currentIndex > 0) {
+        list.splice(currentIndex, 1);
+        list.unshift(primaryEntry);
+        changed = true;
+    }
+
+    if (changed) {
+        writeJsonSetting(CONNECTIONS_KEY, connections);
+        writeJsonSetting(FALLBACK_LIST_KEY, list);
+        for (const entryId of modelNameChanges) {
+            const states = readJsonSetting(ENTRY_STATES_KEY, {});
+            delete states[entryId];
+            writeJsonSetting(ENTRY_STATES_KEY, states);
+        }
+        syncAiDebugContext();
+        notifyFallbackChange();
+        logDebugEvent("setting", "CheapVibeCode is ready at the top of the Fallback list.", {
+            model: primaryEntry.model,
+            endpoint: endpointHostForLog(configured.endpoint),
+        });
+    }
+    return true;
+}
 
 export function getConnections() {
     ensureMigrated();
@@ -559,6 +651,36 @@ export function getFallbackList() {
     ensureMigrated();
     const stored = readJsonSetting(FALLBACK_LIST_KEY, []);
     return Array.isArray(stored) ? stored.map(normalizeEntry) : [];
+}
+
+// Read once per session. A deployment provides its default gateway at
+// `/api/ai/bootstrap`; the exact endpoint/model/key is kept for first-run
+// seeding and for the setup screen. Existing player Connections are untouched.
+export async function loadBundledAiConnection() {
+    if (typeof window === "undefined") return null;
+    try {
+        const response = await fetch("/api/ai/bootstrap", { cache: "no-store" });
+        if (!response.ok) return null;
+        const payload = await response.json();
+        const connection = payload?.connection;
+        if (!connection?.endpoint || !connection?.apiKey || !connection?.model) return null;
+        writeJsonSetting("ai_bootstrap_config", {
+            endpoint: connection.endpoint,
+            apiKey: connection.apiKey,
+            model: connection.model,
+        });
+        if (payload?.fallbackConnection?.endpoint && payload.fallbackConnection.apiKey && payload.fallbackConnection.model) {
+            writeJsonSetting("ai_bootstrap_fallback_config", {
+                endpoint: payload.fallbackConnection.endpoint,
+                apiKey: payload.fallbackConnection.apiKey,
+                model: payload.fallbackConnection.model,
+            });
+        }
+        seedBundledProvider(connection);
+        return connection;
+    } catch {
+        return null;
+    }
 }
 
 // "gemini-3.5-flash (Main Google)": how an entry is named in notices, logs and
@@ -682,6 +804,15 @@ export function applyQuickAiSetup({ provider, apiKey = "", endpoint = "", model 
     const key = String(apiKey ?? "").trim();
     const url = String(endpoint ?? "").trim();
     const modelName = String(model ?? "").trim();
+    const bundled = readJsonSetting("ai_bootstrap_config", null);
+    if (!key && !url && bundled?.connection?.apiKey && bundled?.connection?.endpoint && bundled?.connection?.model) {
+        return applyQuickAiSetup({
+            provider,
+            apiKey: bundled.connection.apiKey,
+            endpoint: bundled.connection.endpoint,
+            model: modelName || bundled.connection.model,
+        });
+    }
     if (requirement === "endpoint" ? !url : !key) {
         throw new Error(requirement === "endpoint" ? "Enter the server endpoint first." : "Paste an API key first.");
     }

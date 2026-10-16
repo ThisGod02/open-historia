@@ -91,6 +91,12 @@ export const createPoliticalCartographyScheduler = ({
               ...(payload?.changedRegionIds ?? []),
             ]),
           ],
+          // Keep the animation request through coalescing; the worker chooses a
+          // cheap batch fade rather than directional polygon clipping when the
+          // accumulated changed-region set is large.
+          animateOwnershipTransition:
+            latestDesired.payload?.animateOwnershipTransition !== false
+            && payload?.animateOwnershipTransition !== false,
         }
       : payload;
 

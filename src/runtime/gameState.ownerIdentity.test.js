@@ -25,6 +25,24 @@ test("a renamed polity's display name and aliases resolve to its token", () => {
   assert.equal(canonicalOwnerName("Germany", aliases), "Germany");
 });
 
+test("Cyrillic polity names remain distinct in the owner alias map", () => {
+  const aliases = buildOwnerAliasMap({
+    "Австрийская империя": {
+      code: "Австрийская империя",
+      name: "Священная Римская империя",
+      aliases: ["Австрия"],
+    },
+    "Германская империя": {
+      code: "Германская империя",
+      name: "Германская империя",
+      aliases: [],
+    },
+  });
+  assert.equal(canonicalOwnerName("Австрийская империя", aliases), "Австрийская империя");
+  assert.equal(canonicalOwnerName("Священная Римская империя", aliases), "Австрийская империя");
+  assert.equal(canonicalOwnerName("Германская империя", aliases), "Германская империя");
+});
+
 test("punctuation and diacritics do not hide an identity", () => {
   // The model spells a name back the way it remembers it — an accent dropped or
   // an apostrophe added must not mint a second country.

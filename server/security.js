@@ -27,6 +27,22 @@ export const isLoopbackAddress = (addr) => {
   return a === "::1" || a === "127.0.0.1" || /^127\./.test(a);
 };
 
+// A Docker-published app can only be reached from the host on its explicitly
+// published hostnames, while the app's browser reaches its server across the
+// bridge network (a non-loopback peer). Permit those Host headers without
+// opening the AI relay to all LAN clients.
+export const isAllowedAiRelayCaller = ({
+  remoteAddress,
+  host,
+  allowedHosts = [],
+  allowRemote = false,
+} = {}) => {
+  if (allowRemote || isLoopbackAddress(remoteAddress)) return true;
+  const normalizedHost = String(host ?? "").trim().toLowerCase();
+  const hosts = allowedHosts instanceof Set ? allowedHosts : new Set(allowedHosts);
+  return hosts.has(normalizedHost);
+};
+
 // Decide whether a state-changing request may proceed (CSRF / drive-by guard).
 // Allowed: safe methods; same-origin app writes (Origin host === Host); and
 // native clients with no Origin BUT only from loopback.

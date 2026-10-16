@@ -2123,14 +2123,45 @@ const DateWidget = ({
     // request already streamed, nothing was reading it. A preview, before the
     // validators sort, clamp and screen; the list goes when the turn does.
     const [streamedEvents, setStreamedEvents] = useState([]);
-    const showStreamedEvents = (list) => setStreamedEvents(Array.isArray(list) ? list : []);
+    const streamedEventsLatestRef = React.useRef([]);
+    const streamedEventsPendingRef = React.useRef(null);
+    const streamedEventsTimerRef = React.useRef(null);
+    const flushStreamedEvents = () => {
+        streamedEventsTimerRef.current = null;
+        const next = streamedEventsPendingRef.current;
+        streamedEventsPendingRef.current = null;
+        if (next) setStreamedEvents(next);
+    };
+    const showStreamedEvents = (list) => {
+        // Keep the live preview responsive when the provider closes many events
+        // quickly. Rendering every callback republishes staged map state for
+        // every event and can monopolize the browser main thread.
+        const next = Array.isArray(list) ? list : [];
+        streamedEventsLatestRef.current = next;
+        streamedEventsPendingRef.current = next;
+        if (streamedEventsTimerRef.current == null) {
+            streamedEventsTimerRef.current = window.setTimeout(flushStreamedEvents, 250);
+        }
+    };
+    const clearStreamedEvents = () => {
+        if (streamedEventsTimerRef.current != null) {
+            window.clearTimeout(streamedEventsTimerRef.current);
+            streamedEventsTimerRef.current = null;
+        }
+        streamedEventsPendingRef.current = null;
+        streamedEventsLatestRef.current = [];
+        setStreamedEvents([]);
+    };
+    useEffect(() => () => {
+        if (streamedEventsTimerRef.current != null) {
+            window.clearTimeout(streamedEventsTimerRef.current);
+        }
+    }, []);
     // Not isLoading, which Undo and Intervene raise too: neither writes events,
     // and a live panel over either promises cards that never come.
     const [skipInFlight, setSkipInFlight] = useState(false);
     // The span being written, for the panel's subtitle. Set when the skip starts.
     const [liveRange, setLiveRange] = useState({ from: "", to: "" });
-    // The pre-jump world the live reveal stages onto. Null when no skip is running.
-    const [liveStageBase, setLiveStageBase] = useState(null);
     // Cards the player has opened, by headline, so one opened mid-skip survives
     // the validated turn replacing the preview.
     const [openMapChanges, setOpenMapChanges] = useState(() => new Set());
@@ -2328,7 +2359,7 @@ const DateWidget = ({
         setIsLoading(true);
         setSkipInFlight(live);
         setJumpProgress("");
-        setStreamedEvents([]);
+        clearStreamedEvents();
         // A carry the last turn never consumed, because a skip landing on the
         // same date leaves the record's identity unchanged, must not reach this one.
         revealCarryRef.current = null;
@@ -2339,7 +2370,6 @@ const DateWidget = ({
             setVisibleEventCount(1);
             setLiveRange({ from: currentDate, to: landingDate });
             // Nothing is written yet, so the world on screen is the base.
-            setLiveStageBase(cloneWorldForStaging(worldState));
         }
         setError("");
         setFallbackWarning("");
@@ -2464,8 +2494,7 @@ const DateWidget = ({
             setIsLoading(false);
             setSkipInFlight(false);
             setJumpProgress("");
-            setStreamedEvents([]);
-            setLiveStageBase(null);
+            clearStreamedEvents();
             // Between turns, never during one. If the ladder has learned
             // something consistent about this endpoint, offer it now.
             setModeSuggestion(getStructuredModeSuggestion());
@@ -2527,14 +2556,13 @@ const DateWidget = ({
         setSkipInFlight(live);
         setSegmentRetries((count) => count + 1);
         setJumpProgress("");
-        setStreamedEvents([]);
+        clearStreamedEvents();
         revealCarryRef.current = null;
         if (live) {
             setOpenMapChanges(new Set());
             setVisibleEventCount(1);
             // The finished segments are in hand; the retry writes the rest.
             setLiveRange({ from: currentDate, to: "" });
-            setLiveStageBase(cloneWorldForStaging(worldState));
             setPanel("history");
         }
         const startedAt = Date.now();
@@ -2583,8 +2611,7 @@ const DateWidget = ({
             setIsRetryingSegment(false);
             setSkipInFlight(false);
             setJumpProgress("");
-            setStreamedEvents([]);
-            setLiveStageBase(null);
+            clearStreamedEvents();
         }
     };
 
@@ -2763,7 +2790,7 @@ const DateWidget = ({
     // The newest revealed event, written turn or not: the camera follows the
     // live reveal for the same reason the map stages along with it.
     const activeVisibleEvent =
-    openPanel === "history" && totalVisibleEvents > 0
+    !skipInFlight && openPanel === "history" && totalVisibleEvents > 0
     ? displayRecord.events[Math.min(Math.max(visibleEventCount, 1), totalVisibleEvents) - 1]
     : null;
 
@@ -2870,7 +2897,9 @@ const DateWidget = ({
     // Set the moment a watched skip lands, read once by the effect below.
     const revealCarryRef = React.useRef(null);
     const carryLiveReveal = () => {
-        const streamed = streamedEventsRef.current;
+        const streamed = streamedEventsLatestRef.current.length
+            ? streamedEventsLatestRef.current
+            : streamedEventsRef.current;
         if (!streamed.length) {
             revealCarryRef.current = null;
             return;
@@ -3099,31 +3128,10 @@ const DateWidget = ({
 
     useEffect(() => {
         // No snapshot needed while the skip writes: the world has not moved, so
-        // it is already the pre-jump base. Without this the map sits still all
-        // round, since the reveal now happens during the skip and the turn lands
-        // fully revealed, the one state the staging below never covers.
-        if (liveTurnRecord) {
-            const revealedLive = liveTurnRecord.events.slice(0, Math.max(1, visibleEventCount));
-            if (openPanel === "history" && liveStageBase && revealedLive.length) {
-                try {
-                    const { world: livePreview } = applyEventImpactsToWorld({
-                        colors: {},
-                        events: revealedLive,
-                        motion: { originDate: liveTurnRecord.fromDate || "", round: liveTurnRecord.round || 0, tick: 0 },
-                        world: liveStageBase,
-                    });
-                    setWorldStateOverride(livePreview);
-                    // The orders of the same moment, so a patrol's ring and a
-                    // march's heading move with their units (unitsController.js).
-                    setUnitsOverride(livePreview.units ?? [], livePreview.pendingUnitOrders ?? []);
-                    return;
-                } catch (error) {
-                    // Unvalidated impacts again: the map waits rather than taking the panel.
-                    console.warn("[OH staged reveal] the live preview could not be applied; the map waits for the turn.", error);
-                }
-            }
-            setWorldStateOverride(null);
-            setUnitsOverride(null);
+        // it is already the pre-jump base. Keep it canonical while events stream:
+        // repeatedly replaying every event written so far and publishing staged
+        // world/unit overrides makes map interaction lag behind fast streams.
+        if (skipInFlight) {
             return;
         }
         const record = latestTurnRecord;
@@ -3161,7 +3169,7 @@ const DateWidget = ({
         });
         setWorldStateOverride(stagedWorld);
         setUnitsOverride(stagedWorld.units ?? [], stagedWorld.pendingUnitOrders ?? []);
-    }, [latestTurnRecord, liveStageBase, liveTurnRecord, openPanel, skipInFlight, stagedBase, totalVisibleEvents, visibleEventCount]);
+    }, [latestTurnRecord, liveTurnRecord, openPanel, skipInFlight, stagedBase, totalVisibleEvents, visibleEventCount]);
 
     // Never leave a stale override behind when this widget unmounts.
     useEffect(

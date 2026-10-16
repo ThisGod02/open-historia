@@ -45,10 +45,9 @@ test("the reveal's world moves a patrol's station with its unit", () => {
   assert.deepEqual([station.toLng, station.toLat], [12, 36], "the station is where the unit went");
 });
 
-// The map reads units and orders from the units controller. While the reveal
-// overrides the units, the orders must be the reveal's too: the saved ones are
-// the pre-jump world's while a skip streams, so the ring stayed at the old
-// station while the unit moved off.
+// The completed-turn reveal overrides units and their orders together. During
+// generation the canonical map state stays in place so streamed events cannot
+// flood the main thread with repeated unit/map publications.
 test("while the reveal runs the map draws the reveal's orders, and the saved ones after", () => {
   const units = [fleet({ lng: 12, lat: 36 })];
   const orders = normalizePendingUnitOrders([patrolOrder({ toLng: 12, toLat: 36 })]);
@@ -63,11 +62,17 @@ test("while the reveal runs the map draws the reveal's orders, and the saved one
   setUnitsOverride(null);
 });
 
-test("both reveals hand the map their orders with their units", () => {
+test("only the completed-turn reveal overrides units and carries their orders", () => {
   const source = readFileSync(new URL("../Game/GameUI/time.jsx", import.meta.url), "utf8");
   const calls = [...source.matchAll(/setUnitsOverride\(([^;]*)\);/g)].map((match) => match[1]).filter((args) => args !== "null");
-  assert.equal(calls.length, 2, "the live skip and the replay of a past turn");
+  assert.equal(calls.length, 1, "live streamed events leave canonical map units untouched");
   for (const args of calls) assert.match(args, /\.pendingUnitOrders \?\? \[\]\)?$/, args);
+});
+
+test("a live event stream neither stages the map nor moves its camera", () => {
+  const source = readFileSync(new URL("../Game/GameUI/time.jsx", import.meta.url), "utf8");
+  assert.match(source, /if \(skipInFlight\) \{\s*return;\s*\}/);
+  assert.match(source, /!skipInFlight && openPanel === "history" && totalVisibleEvents > 0/);
 });
 
 test("a unit placed by hand takes its patrol station with it", () => {

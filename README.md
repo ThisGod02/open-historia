@@ -1,19 +1,28 @@
 ## License & Copyright
 
-Copyright (C) 2026 Open Historia
+Copyright (C) 2026 Open Historia contributors
 
 This project is licensed under the terms of the GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later). See the [LICENSE](LICENSE) file for details.
 
 Contributions are accepted under the [Contributor Copyright Assignment Agreement](CLA.md), which assigns the copyright in contributions to the Open Historia Organisation. CLA Assistant asks you to sign it on your first pull request; see [CONTRIBUTING.md](CONTRIBUTING.md).
 
-<!-- Open Historia — portions (install, Android app, hub & preset docs) © 2026 Nicholas Krol, AGPL-3.0-or-later (see LICENSE). -->
-<h1 align="center">Open Historia</h1>
+<!-- Pax Historia adaptation based on Open Historia. Original copyright notices are retained in source files. -->
+<h1 align="center">Pax Historia — Мир 1910</h1>
 
 <div align="center">
-  <strong>An open-source, better alternative to <a href="https://www.paxhistoria.co/games">Pax Historia</a>.</strong>
+  <strong>Кампания 1910 года на региональной карте Open Historia.</strong>
 </div>
 
-> **Open Historia is an independent, open-source project** and is not affiliated with, endorsed, sponsored, approved, or authorized by Pax Historia. Pax Historia has no involvement in the development, operation, or distribution of Open Historia. Pax Historia™ and all associated trademarks, trade names, and logos are the exclusive property of Pax Historia.
+Это адаптированная версия Open Historia для альтернативно-исторической кампании
+с началом 1 января 1910 года. Проект распространяется по GNU AGPL-3.0-or-later;
+см. файл `LICENSE`. Изменения этой версии и исходный код, используемый сетевым
+экземпляром, должны предоставляться пользователям в соответствии с AGPL.
+
+Историческая карта 1914 года включена как приближённая база для стартового мира
+1910 года; источник и лицензия находятся в `server/seed/1910/source/`.
+
+**Документация на русском:** [`READMEru.md`](READMEru.md) ·
+**Изменения и обоснования:** [`CHANGES_RU.md`](CHANGES_RU.md)
 
 <br />
 
@@ -60,6 +69,16 @@ Contributions are accepted under the [Contributor Copyright Assignment Agreement
 - __troops:__ deploy, move and battle armies; deployments stay pending until the AI resolves them; scenarios control which troop types exist in their era
 - __scenario hub:__ browse, vote on and import community scenarios from the in-game **Community** tab, and publish your own
 - __self-hostable:__ run your own instance with your own AI backend completely offline
+
+### Pax Historia adaptation
+
+The bundled default campaign is **Мир 1910**, beginning on 1 January 1910.
+It adapts Open Historia's playable regional map and simulation engine rather than
+replacing them with a second renderer. Historical country ownership, the era
+palette, Russian map labels, and the campaign's player-led simulation rules are
+generated reproducibly by `npm run seed:1910` from the pristine upstream seed
+snapshot in `server/seed/1910/open-historia-default/` and the historical boundary
+source documented in `server/seed/1910/source/`.
 
 ---
 
@@ -192,17 +211,15 @@ OH_HOST=192.168.1.20 node server/server.js # one interface only
 > `optionalDependency`, so npm reports the failure and carries on — but there is no
 > reason to download it in the first place.
 
-> **Note:** the large map binaries (`*.pmtiles`, `public/assets/*-seed.*`, and the stock
-> world `server/data/stock/regions.geojson`) are **not** in the repo — they are
-> hosted as [GitHub Release assets](https://github.com/Open-Historia/open-historia/releases/tag/map-data)
-> and downloaded by `scripts/fetch-map-assets.mjs`. The launcher script for your platform
-> runs this for you automatically, so a plain ZIP download works too — no Git LFS needed.
+> **Note:** large PMTiles archives are downloaded from the Open Historia `map-data`
+> GitHub Release by `scripts/fetch-map-assets.mjs`. Docker keeps them in a persistent
+> map-assets volume rather than baking 170+ MB into the image.
 
 ---
 
 ## 🌍 Scenarios
 
-**Modern Day** is the only built-in scenario. All other official presets — *World War II — 1939*,
+**Мир 1910** is the built-in scenario for this adaptation. Other upstream presets — *World War II — 1939*,
 *Medieval — 1200 AD*, *Rome — 117 AD*, *Mongol World — 1300 AD*, *New World — 1650*, and
 *Bronze Age — 1200 BC* — live on the
 [**Scenario Hub**](https://github.com/Open-Historia/Open-historia-scenarios), pinned at the top of
@@ -214,9 +231,9 @@ To rebuild an official preset from source (specs live in `scripts/presets/`):
 node scripts/presets/build-preset.mjs scripts/presets/wwii-1939.spec.mjs
 ```
 
-The built-in Modern Day map is authored in the Scenario Workshop and lives in the repo as
-`server/seed/default/regions.geojson` (with its cities, world and colours beside it); the server
-copies that seed into its data directory on first run and whenever the seed's `builtInMap` changes.
+The built-in 1910 map uses 4,848 canonical Open Historia regions. The checked-in
+scenario seed is in `server/seed/default/`; rerun `npm run seed:1910` to rebuild
+its historical ownership overlays from the included, attributed 1914 baseline.
 `node scripts/build-default-map.mjs` regenerates the *stock* GADM world instead — the map every
 scenario without one of its own (the hub presets) renders on.
 

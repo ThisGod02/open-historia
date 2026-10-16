@@ -181,11 +181,17 @@ export const ensureScriptedEvents = (events, beats) => {
     const list = [...asArray(events)];
     const written = [];
     const inserted = [];
+    const insertedEvents = [];
     for (const beat of asArray(beats)) {
         if (beatIsWritten(beat, list)) written.push(beat);
-        else { list.push(scriptedEventFor(beat)); inserted.push(beat); }
+        else {
+            const event = scriptedEventFor(beat);
+            list.push(event);
+            inserted.push(beat);
+            insertedEvents.push(event);
+        }
     }
-    return { events: list, written, inserted };
+    return { events: list, written, inserted, insertedEvents };
 };
 
 // What the period is told about its beats: in the user message, beside the

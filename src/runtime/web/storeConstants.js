@@ -88,6 +88,7 @@ export const TEMPLATE_WORLD_OVERRIDE_KEYS = [
   "regionSovereigntyOverrides",
   "simulationRules",
   "startingTimelineText",
+  "statsSheet",
 ];
 
 export const SUPPORTED_IMAGE_CONTENT_TYPES = new Set([

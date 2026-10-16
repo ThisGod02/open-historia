@@ -7,6 +7,7 @@ import { test } from "node:test";
 import {
   allowedCorsOrigin,
   crossOriginWriteAllowed,
+  isAllowedAiRelayCaller,
   isAllowedHubUrl,
   isLoopbackAddress,
   isMetadataAddress,
@@ -37,6 +38,15 @@ test("isLoopbackAddress recognises local addresses only", () => {
   for (const no of ["192.168.1.5", "10.0.0.2", "::ffff:192.168.1.5", "", undefined, null]) {
     assert.equal(isLoopbackAddress(no), false, String(no));
   }
+});
+
+test("AI relay stays loopback-only except for explicitly published hostnames", () => {
+  const allowedHosts = new Set(["localhost:8080", "127.0.0.1:8080"]);
+  assert.equal(isAllowedAiRelayCaller({ remoteAddress: "127.0.0.1", host: "evil.test" }), true);
+  assert.equal(isAllowedAiRelayCaller({ remoteAddress: "172.18.0.4", host: "localhost:8080", allowedHosts }), true);
+  assert.equal(isAllowedAiRelayCaller({ remoteAddress: "172.18.0.4", host: "127.0.0.1:8080", allowedHosts }), true);
+  assert.equal(isAllowedAiRelayCaller({ remoteAddress: "192.168.1.4", host: "evil.test", allowedHosts }), false);
+  assert.equal(isAllowedAiRelayCaller({ remoteAddress: "192.168.1.4", host: "evil.test", allowedHosts, allowRemote: true }), true);
 });
 
 test("crossOriginWriteAllowed: safe methods always pass", () => {

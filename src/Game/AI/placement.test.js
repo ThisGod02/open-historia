@@ -124,7 +124,7 @@ test("a phrase that finds nothing reports every place it could have been naming"
 //
 // Modern Day's own map, as it ships: its regions are numbered ("2001"), not
 // GADM ids, and it is the map the fleet in that Game sailed on.
-const MODERN_DAY_REGIONS = JSON.parse(readFileSync(new URL("../../../server/seed/default/regions.geojson", import.meta.url), "utf8"))
+const MODERN_DAY_REGIONS = JSON.parse(readFileSync(new URL("../../../server/test-fixtures/modern-day-regions.geojson", import.meta.url), "utf8"))
     .features.filter((feature) => feature?.geometry);
 const modernDayRegionAt = (point) => MODERN_DAY_REGIONS.find((feature) => pointInGeometry(point, feature.geometry)) ?? null;
 // The test map stands in for the real world here: its gazetteer is handed the
@@ -917,6 +917,46 @@ test("a town across the border is refused: nothing crosses on a name's say-so", 
     assert.deepEqual(asked, []);
     // Out at sea it is no town of this map.
     assert.match(placeWith("Seaholm", { owner: "Westmark" }).error, /is called "Seaholm"/);
+});
+
+test("Russian named destinations are grounded before unit motion", () => {
+    const udine = {
+        id: "udine",
+        name: "Udine",
+        kind: "city",
+        point: [13.235, 46.07],
+    };
+    const italy = {
+        id: "friuli",
+        name: "Friuli",
+        owner: "Kingdom of Italy",
+        geometry: box(12.5, 45.5, 14, 46.7),
+    };
+    const italian = {
+        ...gazetteer,
+        regions: [...REGIONS, italy],
+        regionAt: (point) => (pointInGeometry(point, italy.geometry) ? italy : gazetteer.regionAt(point)),
+        find: (name, options = {}) => {
+            if (fold(name) === "udine") return udine;
+            if (fold(name) === "friuli") return { kind: "region", name: italy.name, region: italy };
+            if (fold(name) === "kingdom of italy") return { kind: "polity", name: italy.owner, regions: [italy] };
+            return gazetteer.find(name, options);
+        },
+        samePolity: (a, b) => fold(a) === fold(b),
+    };
+
+    const exact = resolvePlacement("Удине", italian, { owner: "Kingdom of Italy" });
+    assert.equal(exact.error, undefined);
+    assert.deepEqual([exact.lng, exact.lat], udine.point);
+
+    const south = resolvePlacement("южнее Удине, страна: Kingdom of Italy", italian, { owner: "Kingdom of Italy" });
+    assert.equal(south.error, undefined);
+    assert.ok(south.lat < udine.point[1], `expected south of Udine, got ${south.lat}`);
+    assert.ok(Math.abs(south.lng - udine.point[0]) < 0.5, `expected near Udine, got ${south.lng}`);
+
+    const approaches = resolvePlacement("подступы к Удине, страна: Kingdom of Italy", italian, { owner: "Kingdom of Italy" });
+    assert.equal(approaches.error, undefined);
+    assert.ok(Math.abs(approaches.lng - udine.point[0]) < 0.5, `expected near Udine, got ${approaches.lng}`);
 });
 
 test("an address whose place the map knows is respected", () => {

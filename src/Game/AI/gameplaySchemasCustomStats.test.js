@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { getGameplayToolForCustomStatSheet } from "./gameplaySchemas.js";
+import { getGameplayToolForCustomStatSheet, normalizeGameplayPayload, validateGameplayPayload } from "./gameplaySchemas.js";
 
 const rows = [
   { key: "timber", label: "Timber", kind: "index", minimum: 0, maximum: 100, description: "Usable timber supply." },
@@ -72,5 +72,26 @@ test("custom GM transport advertises exact customStats keys inside its shallow J
 test("standard GM transport remains unchanged when no custom sheet is active", () => {
   const standard = getGameplayToolForCustomStatSheet("gameMaster", rows, { custom: false });
   assert.doesNotMatch(standard.schema.properties.countryStatPatchesJson.description, /patch\.customStats/);
+});
+
+test("legacy unit placement aliases normalize into structured place hints", () => {
+  const payload = normalizeGameplayPayload("jumpForward", {
+    events: [{
+      date: "1912-04-30",
+      title: "Armies redeploy",
+      description: "The formations move.",
+      impacts: {
+        unitOps: [
+          { op: "spawn", unit: { name: "Northern Army", type: "infantry", ownerCode: "Italy", strength: 100, composition: "infantry", place: "border with Rome" } },
+          { op: "move", unitId: "1st Army", location: "eastern Germany", posture: "transit" },
+        ],
+      },
+    }],
+    stopDate: "1912-04-30",
+    summary: "Army redeployment.",
+  });
+  assert.equal(payload.events[0].impacts.unitOps[0].unit.at, "border with Rome");
+  assert.equal(payload.events[0].impacts.unitOps[1].at, "eastern Germany");
+  assert.equal(validateGameplayPayload("jumpForward", payload).valid, true);
 });
 

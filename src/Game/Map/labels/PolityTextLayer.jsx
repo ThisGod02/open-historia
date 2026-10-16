@@ -568,7 +568,7 @@ export default function PolityTextLayer({
       mapInstance.off?.("projectiontransition", onMapReady);
       try {
         if (mapInstance.getLayer?.(POLITY_TEXT_RENDERER_LAYER_ID)) mapInstance.removeLayer(POLITY_TEXT_RENDERER_LAYER_ID);
-      } catch {}
+      } catch { /* The renderer layer may already be detached. */ }
       onStatusChange?.({
         requested: false,
         mounted: false,

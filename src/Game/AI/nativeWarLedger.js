@@ -338,6 +338,12 @@ const UNAMBIGUOUS_COMBAT_RE = /\b(battle|invasion|invades?|bombard(?:ment|s|ed|i
 const DIRECT_COMBAT_CONTEXT_RE = /\b(?:engag(?:e|es|ed|ing)|locked)\b.{0,80}\bcombat\b|\bcombat\b.{0,80}\b(?:against|between|with)\b|\bcombat operations?\b.{0,80}\b(?:against|targeting)\b/i;
 const ACTIVE_OFFENSIVE_RE = /\b(launch(?:es|ed|ing)?|begin(?:s|ning)?|open(?:s|ed|ing)?|commence(?:s|d|ing)?|initiat(?:es|ed|ing)?|execute(?:s|d|ing)?)\b.{0,60}\b(counter[- ]?)?offensive\b|\b(counter[- ]?)?offensive\b.{0,60}\b(begins?|opens?|commences?|is launched|is underway)\b/i;
 const WAR_START_RE = /\b(declares? war|declaration of war|enters? (?:the )?war|joins? (?:the )?war|war is declared|commences? hostilities)\b/i;
+const RUSSIAN_WAR_START_RE =
+  /(?:войн[а-яё]*\s+(?:начал[а-яё]*|объяв[а-яё]*|разгор[а-яё]*|возобнов[а-яё]*)|(?:начал[а-яё]*|объяв[а-яё]*|разгор[а-яё]*|возобнов[а-яё]*)\s+(?:войн[а-яё]*|боев[а-яё]*\s+действи[а-яё]*)|вступ[а-яё]*\s+в\s+войн[а-яё]*|открыт[а-яё]*\s+боев[а-яё]*\s+действи[а-яё]*|объявлен[а-яё]*\s+войн[а-яё]*)/i;
+// These phrases cover Russian titles/descriptions; the native control-evidence
+// check below also handles other languages without growing a translation list.
+const RUSSIAN_WAR_FIGHTING_RE =
+  /(?:войск[а-яё]*|арм[а-яё]*|танк[а-яё]*|корпус[а-яё]*|батальон[а-яё]*)[^.!?]{0,120}(?:заним|захват|оккуп|атак|штурм|вторг|вош|пересек|прорвал|наступ|плен|взял|овлад|окруж|отброс|освобод|осад)[а-яё]*|(?:падени|взят|захват|оккупаци|вторжени|штурм|сражени|битв|бой|бои|боев|обстрел|бомбардировк)[а-яё]*|город[а-яё]*[^.!?]{0,80}пал[а-яё]*/i;
 const CEASEFIRE_RE = /\b(ceasefire (?:takes effect|begins|signed|agreed|declared)|armistice (?:takes effect|signed|agreed)|truce (?:takes effect|signed|agreed))\b/i;
 const WAR_END_RE = /\b(peace treaty (?:signed|takes effect)|war ends|ends? the war|hostilities formally end|peace is signed)\b/i;
 
@@ -398,6 +404,24 @@ const combatSemanticText = (event) =>
     .replace(NON_BATTLEFIELD_ACTION_TERMS_RE, " military-exercise ")
     .replace(NON_BATTLEFIELD_OFFENSIVE_RE, " non-military-campaign ");
 
+const eventHasRussianBattlefieldEvidence = (event, text = combatSemanticText(event)) =>
+  normalizeString(event?.kind).toLowerCase() === "military" &&
+  uniquePolities(event?.combatants, 8).length >= 2 &&
+  RUSSIAN_WAR_FIGHTING_RE.test(text);
+
+const eventHasOpposingBattlefieldControl = (event) => {
+  if (normalizeString(event?.kind).toLowerCase() !== "military") return false;
+  const combatants = new Set(uniquePolities(event?.combatants, 8).map(polityKey));
+  if (combatants.size < 2) return false;
+  return normalizeArray(event?.impacts?.regionControlOps).some((op) => {
+    const operation = normalizeString(op?.op).toLowerCase();
+    const from = normalizeString(op?.fromCode);
+    const to = normalizeString(operation === "contest" ? op?.actorCode : op?.toCode);
+    if (!from || !to || polityKey(from) === polityKey(to)) return false;
+    return combatants.has(polityKey(from)) && combatants.has(polityKey(to));
+  });
+};
+
 // Semantic WHAT: does the event itself actually describe battlefield combat?
 // This deliberately ignores impacts.unitOps. A post-processor may implement
 // event semantics, but it may not turn a conscription law, exercise, readiness
@@ -413,7 +437,9 @@ export const eventNarratesHardCombat = (event) => {
   if (
     UNAMBIGUOUS_COMBAT_RE.test(text) ||
     DIRECT_COMBAT_CONTEXT_RE.test(text) ||
-    ACTIVE_OFFENSIVE_RE.test(text)
+    ACTIVE_OFFENSIVE_RE.test(text) ||
+    eventHasRussianBattlefieldEvidence(event, text) ||
+    eventHasOpposingBattlefieldControl(event)
   ) return true;
   if (military && HARD_COMBAT_RE.test(text)) return true;
   return hasControl && HARD_COMBAT_RE.test(text);
@@ -428,9 +454,12 @@ const eventSupportsNewWarStart = (event) => {
   const text = combatSemanticText(event);
   return (
     WAR_START_RE.test(text) ||
+    RUSSIAN_WAR_START_RE.test(text) ||
     UNAMBIGUOUS_COMBAT_RE.test(text) ||
     DIRECT_COMBAT_CONTEXT_RE.test(text) ||
-    ACTIVE_OFFENSIVE_RE.test(text)
+    ACTIVE_OFFENSIVE_RE.test(text) ||
+    eventHasRussianBattlefieldEvidence(event, text) ||
+    eventHasOpposingBattlefieldControl(event)
   );
 };
 
@@ -530,7 +559,7 @@ const eventCanOpenDeclaredWar = (event) => {
 
 const eventTransitionExpectation = (event) => {
   const title = normalizeString(event?.title);
-  if (WAR_START_RE.test(title)) return new Set(["start", "join-a", "join-b", "resume"]);
+  if (WAR_START_RE.test(title) || RUSSIAN_WAR_START_RE.test(title)) return new Set(["start", "join-a", "join-b", "resume"]);
   if (WAR_END_RE.test(title)) return new Set(["end"]);
   if (CEASEFIRE_RE.test(title)) return new Set(["ceasefire"]);
   return null;
@@ -580,6 +609,7 @@ const validateBoundWarBatch = ({ events, updates, world, requireUpdateLinks = tr
   for (const [eventIndex, event] of normalizedEvents.entries()) {
     const eventId = normalizeString(event.id);
     const eventUpdates = byEventId.get(eventId) || [];
+    const deferredEnds = [];
 
     for (const update of eventUpdates) {
       const op = normalizeString(update?.op).toLowerCase();
@@ -588,6 +618,10 @@ const validateBoundWarBatch = ({ events, updates, world, requireUpdateLinks = tr
       }
       if (op === "resume" && !eventCanOpenDeclaredWar(event)) {
         return `War update ${update.id} (resume) cannot resume hostilities from "${normalizeString(event.title)}": the causal event lacks direct adversarial combat or explicit renewed-hostilities semantics.`;
+      }
+      if (op === "end") {
+        deferredEnds.push(update);
+        continue;
       }
 
       const result = applyUpdateToWarMap({
@@ -635,6 +669,26 @@ const validateBoundWarBatch = ({ events, updates, world, requireUpdateLinks = tr
       }
       const combatantError = validateCombatantsAgainstWar(event, war);
       if (combatantError) return combatantError;
+    }
+
+    // A capitulation/final capture may be the event that ends the war. Keep the
+    // war active while validating its combat semantics, then apply END after
+    // the event has been checked.
+    for (const update of deferredEnds) {
+      const result = applyUpdateToWarMap({
+        map: working,
+        update,
+        date: normalizeString(event.date),
+        linkedEvents: [event],
+      });
+      if (result.error) return result.error;
+      const eventWarId = normalizeString(event.warId);
+      if (!eventWarId) {
+        return `Event "${normalizeString(event.title)}" performs canonical war operation ${update.op} for ${update.id} but is missing event.warId="${update.id}".`;
+      }
+      if (eventWarId !== update.id) {
+        return `Event "${normalizeString(event.title)}" uses warId ${eventWarId}, but its linked war update modifies ${update.id}.`;
+      }
     }
   }
   return "";

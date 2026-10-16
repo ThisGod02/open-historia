@@ -201,7 +201,8 @@ test("every skip is folded, with Save AI requests on or off, decided once", () =
   assert.match(body, /if \(state\.folded === undefined\) state\.folded = !foldedSkipRefused;/);
   assert.equal(/state\.requests\?\.saving/.test(body), false, "whether requests are being saved no longer decides what a skip asks");
   assert.match(body, /if \(state\.folded && !state\.foldedPrep\) state\.foldedPrep = await prepareFoldedSkip\(/);
-  assert.match(body, /toolTransform: \(tool\) => foldJumpTool\(tool, \{ board: Boolean\(state\.foldedPrep\?\.board\), agentReports: agentJobs\.length > 0, history: Boolean\(historyJob\) \}\)/);
+  assert.match(body, /const transformed = folded\s*\? foldJumpTool\(tool, \{ board: Boolean\(state\.foldedPrep\?\.board\), agentReports: agentJobs\.length > 0, history: Boolean\(historyJob\) \}\)\s*: tool/);
+  assert.match(body, /events: \{ \.\.\.eventsSchema, maxItems: maxEvents \+ dueScriptedBeats\.length \}/);
   assert.match(body, /const agentJobs = state\.folded && isFinalSegment \?/, "the agents report once, with the last segment");
   assert.match(body, /const historyJob = state\.folded && isFinalSegment \? buildSkipHistoryJob\(state\.foldedPrep\?\.history\?\.brief\) : "";/, "and so does the history fold");
   // One request in every mode: a flawed answer is cut down, never sent back.

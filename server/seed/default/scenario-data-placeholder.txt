@@ -1,0 +1,4 @@
+This scenario's canonical 4,848-region GADM map and authored seed are generated
+by `npm run seed:1910` from the Open Historia seed preserved at
+`server/seed/1910/open-historia-default/`. The historical ownership overlay is
+computed from `server/seed/1910/source/world_1914.geojson`.

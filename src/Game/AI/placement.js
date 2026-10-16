@@ -263,6 +263,50 @@ const partOfBox = ([west, south, east, north], direction) => {
 
 const DIRECTION_PATTERN = "(north|south|east|west|n|s|e|w)(?:[\\s-]?(east|west|e|w))?";
 const stripArticle = (text) => asText(text).replace(/^(?:the|a|an)\s+/i, "");
+const transliterateRussianPlaceText = (value) => asText(value)
+    .replace(/[А-Яа-яЁё]/g, (letter) => ({
+        А: "A", а: "a", Б: "B", б: "b", В: "V", в: "v", Г: "G", г: "g",
+        Д: "D", д: "d", Е: "E", е: "e", Ё: "Yo", ё: "yo", Ж: "Zh", ж: "zh",
+        З: "Z", з: "z", И: "I", и: "i", Й: "Y", й: "y", К: "K", к: "k",
+        Л: "L", л: "l", М: "M", м: "m", Н: "N", н: "n", О: "O", о: "o",
+        П: "P", п: "p", Р: "R", р: "r", С: "S", с: "s", Т: "T", т: "t",
+        У: "U", у: "u", Ф: "F", ф: "f", Х: "Kh", х: "kh", Ц: "Ts", ц: "ts",
+        Ч: "Ch", ч: "ch", Ш: "Sh", ш: "sh", Щ: "Shch", щ: "shch", Ы: "Y", ы: "y",
+        Э: "E", э: "e", Ю: "Yu", ю: "yu", Я: "Ya", я: "ya",
+        Ъ: "", ъ: "", Ь: "", ь: "",
+    })[letter] ?? letter);
+export const normalizeRussianPlaceDirections = (value) => asText(value)
+    .replace(/(?:^|[\s,])(?:страна|государство)\s*:\s*/gi, (match) => match.startsWith(",") ? "," : " ")
+    .replace(/(?:^|[\s,])(?:в районе|район|окрестности|в окрестностях|у|около|возле|по)\s+/gi, " near ")
+    .replace(/(?:^|[\s,])(?:к северо-западу от|северо-западнее)\s+/gi, " northwest of ")
+    .replace(/(?:^|[\s,])(?:к северо-востоку от|северо-восточнее)\s+/gi, " northeast of ")
+    .replace(/(?:^|[\s,])(?:к юго-западу от|юго-западнее)\s+/gi, " southwest of ")
+    .replace(/(?:^|[\s,])(?:к юго-востоку от|юго-восточнее)\s+/gi, " southeast of ")
+    .replace(/(?:^|[\s,])(?:к северу от|севернее)\s+/gi, " north of ")
+    .replace(/(?:^|[\s,])(?:к югу от|южнее)\s+/gi, " south of ")
+    .replace(/(?:^|[\s,])(?:к западу от|западнее)\s+/gi, " west of ")
+    .replace(/(?:^|[\s,])(?:к востоку от|восточнее)\s+/gi, " east of ")
+    .replace(/(?:^|[\s,])подступы к\s+/gi, " approaches to ")
+    .replace(/(?:^|[\s,])(?:на границе с|к границе с|границы? с)\s+/gi, " border with ")
+    .replace(/(?:^|[\s,])(?:на фронте с|к фронту с)\s+/gi, " frontier with ")
+    .replace(/(?:^|[\s,])(?:в|на|к|до)\s+(?=[А-Яа-яЁё])/gi, " ")
+    .replace(/[А-Яа-яЁё]+/g, (word) => transliterateRussianPlaceText(word))
+    // The map's names are usually Latin-script while the surrounding grammar
+    // follows the player's language. Apply the same grammar after transliteration
+    // too, so "южнее Удине" becomes "south of Udine", not a made-up place name.
+    .replace(/\bstrana\s*:\s*/gi, "")
+    .replace(/\b(?:v raione|raion|okrestnosti|v okrestnostyakh|u|okolo|vozle|po)\s+/gi, "near ")
+    .replace(/\b(?:k severo-zapadu ot|severo-zapadnee)\s+/gi, "northwest of ")
+    .replace(/\b(?:k severo-vostoku ot|severo-vostochnee)\s+/gi, "northeast of ")
+    .replace(/\b(?:k yugo-zapadu ot|yugo-zapadnee)\s+/gi, "southwest of ")
+    .replace(/\b(?:k yugo-vostoku ot|yugo-vostochnee)\s+/gi, "southeast of ")
+    .replace(/\b(?:k severu ot|severnee)\s+/gi, "north of ")
+    .replace(/\b(?:k yugu ot|yuzhnee)\s+/gi, "south of ")
+    .replace(/\b(?:k zapadu ot|zapadnee)\s+/gi, "west of ")
+    .replace(/\b(?:k vostoku ot|vostochnee)\s+/gi, "east of ")
+    .replace(/\bpodstupy k\s+/gi, "approaches to ")
+    .replace(/\b(?:na granitse s|k granitse s|granitsy? s)\s+/gi, "border with ")
+    .replace(/\b(?:na fronte s|k frontu s)\s+/gi, "frontier with ");
 
 // Words for a kind of ground after a place name — "Putumayo jungle frontier",
 // "the Donbas region" — which no map spells as part of the name.
@@ -302,7 +346,7 @@ const COORDINATES = /^[[(]?\s*(-?\d+(?:\.\d+)?)\s*[,;]\s*(-?\d+(?:\.\d+)?)\s*[\]
 // with Colombia" is measured from. `home`: whose thing it is, unit or structure
 // — what "the northern border" is the north of.
 export const readPlacement = (phrase, { owner = "", home: whose = owner } = {}) => {
-    const text = asText(phrase).replace(/\s+/g, " ").replace(/[.;]+$/, "");
+    const text = normalizeRussianPlaceDirections(phrase).trim().replace(/\s+/g, " ").replace(/[.;]+$/, "");
     if (!text) return [];
     const coordinates = text.match(COORDINATES);
     if (coordinates) {

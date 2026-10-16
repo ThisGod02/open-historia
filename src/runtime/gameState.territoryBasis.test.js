@@ -42,6 +42,8 @@ test("held ground and agreement move the border", () => {
   });
   assert.equal(next.regionOwnershipOverrides.SHEWA, "Italy");
   assert.equal(next.regionOwnershipOverrides.HARAR, "Italy");
+  assert.equal(next.territoryAudit.find((entry) => entry.regionId === "SHEWA")?.status, "applied");
+  assert.equal(next.territoryAudit.find((entry) => entry.regionId === "HARAR")?.family, "regionControlOps");
 });
 
 test("a proclaimed annexation of land not held leaves the border alone and stripes the region", () => {
@@ -68,6 +70,7 @@ test("a threat and a raid change nothing at all", () => {
   assert.equal(next.regionOwnershipOverrides.HARAR, "Ethiopia");
   assert.equal(next.regionClaimants.TIGRAY, undefined);
   assert.equal(next.regionClaimants.HARAR, undefined);
+  assert.ok(next.territoryAudit.some((entry) => entry.status === "no-change"));
 });
 
 test("a claim by a polity nobody has heard of still founds it, like any other claim", () => {

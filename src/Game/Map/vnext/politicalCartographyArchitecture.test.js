@@ -214,6 +214,8 @@ test("legal ownership animation keeps canonical ownership separate from bounded 
   assert.match(worker, /toOwner/);
   assert.match(worker, /sweepDx/);
   assert.match(worker, /sweepDy/);
+  assert.match(worker, /MAX_DIRECTIONAL_OWNERSHIP_REGIONS = 8/);
+  assert.match(worker, /transitionMode/);
 
   // Flood is the preferred visual path; the bounded directional sweep remains the fallback.
   assert.match(nations, /createOwnershipFloodCustomLayer/);
@@ -227,6 +229,10 @@ test("legal ownership animation keeps canonical ownership separate from bounded 
     /new Worker\(new URL\("\.\/vnext\/ownershipTransitionWorker\.js"/,
   );
   assert.match(nations, /prefers-reduced-motion/);
+  assert.match(nations, /ownership-fade-custom-fill/);
+  assert.match(nations, /OWNERSHIP_FADE_DURATION_MS = 420/);
+  assert.match(nations, /setFadeOpacity\(1 - eased\)/);
+  assert.doesNotMatch(nations, /normalizeString\(enrichedFeatures\[0\]/);
   assert.match(ownershipTransitionWorker, /transitionT/);
 
   // Animation stays presentation-only; canonical political colour is not rewritten as an effect.

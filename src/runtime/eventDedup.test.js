@@ -91,6 +91,15 @@ test("L1 drops a generated event that restates one in the base log", () => {
   const gen = [ev({ id: "b" }), ev({ id: "c", date: "1950-02-01", title: "Offensive" })];
   assert.deepEqual(ids(dedupeGeneratedEvents(base, gen)), ["c"]);
 });
+test("an action-linked outcome survives prose dedupe but a resolved action stays one-shot", () => {
+  const base = [ev({ id: "old", impacts: { actionIds: ["order-1"] } })];
+  const newOrder = ev({ id: "new", impacts: { actionIds: ["order-2"] } });
+  const duplicateResolution = ev({ id: "duplicate", impacts: { actionIds: ["order-1"] } });
+  assert.deepEqual(
+    ids(dedupeGeneratedEvents(base, [newOrder, duplicateResolution], { preserveActionLinked: true })),
+    ["new"],
+  );
+});
 test("L2 collapses duplicates within the generated batch (keeps first)", () => {
   const gen = [ev({ id: "a" }), ev({ id: "b" })];
   assert.deepEqual(ids(dedupeGeneratedEvents([], gen)), ["a"]);

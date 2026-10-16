@@ -52,6 +52,211 @@ test("a declaration starts a canonical war bound to its event", () => {
   assert.match(buildCanonicalWarContext(merge.world), /war-france-germany-1914 \| ACTIVE \| SIDE A: Germany \| SIDE B: France/);
 });
 
+test("Russian occupation wording is recognized as direct hostilities for a new war", () => {
+  const events = [{
+    id: "e-berlin",
+    date: "1912-04-08",
+    title: "Австрийские войска занимают Берлин и пленяют Вильгельма",
+    description: "Австрийские войска установили контроль над Берлином и захватили Вильгельма.",
+    kind: "military",
+    warId: "austrian-german-war-1912",
+    combatants: ["Австрийская империя", "German Empire"],
+    impacts: {
+      regionControlOps: [{
+        op: "control",
+        regionId: "region: Berlin",
+        fromCode: "German Empire",
+        toCode: "Австрийская империя",
+      }],
+    },
+  }];
+  const candidate = {
+    events,
+    warUpdates: "austrian-german-war-1912~start~Австрийская империя~German Empire~1~The invasion of Berlin begins the war",
+  };
+  assert.equal(validateWarLedgerPayload(candidate, { world }), "");
+});
+
+test("a Russian city-fall headline establishes battlefield hostilities when both sides are named", () => {
+  const candidate = {
+    events: [{
+      id: "e-berlin-falls",
+      date: "1912-04-08",
+      title: "Падение Берлина и провозглашение Священной Римской империи",
+      description: "Австрийская империя нанесла поражение германским защитникам Берлина.",
+      kind: "military",
+      warId: "austrian-german-war-1912",
+      combatants: ["Австрийская империя", "German Empire"],
+      impacts: {
+        regionControlOps: [{
+          op: "control",
+          regionId: "region: Berlin",
+          fromCode: "German Empire",
+          toCode: "Австрийская империя",
+        }],
+      },
+    }],
+    warUpdates: "austrian-german-war-1912~start~Австрийская империя~German Empire~1~The Austro-German War begins",
+  };
+  assert.equal(validateWarLedgerPayload(candidate, { world }), "");
+});
+
+test("common Russian battlefield phrasings establish a war when linked to the opposing control change", () => {
+  const titles = [
+    "Начало войны",
+    "Вступление Австрии в войну",
+    "Вторжение в Германию",
+    "Штурм Берлина",
+    "Взятие Берлина",
+    "Город пал",
+    "Бои за столицу",
+    "Войска прорвали оборону и вошли в город",
+    "Австрия объявляет войну Германии",
+  ];
+  for (const [index, title] of titles.entries()) {
+    const candidate = {
+      events: [{
+        id: `e-ru-${index}`,
+        date: "1912-04-08",
+        title,
+        description: "Австрийские войска ведут боевые действия против германских сил.",
+        kind: "military",
+        warId: "austrian-german-war-1912",
+        combatants: ["Австрийская империя", "German Empire"],
+        impacts: {
+          regionControlOps: [{
+            op: "control",
+            regionId: "region: Berlin",
+            fromCode: "German Empire",
+            toCode: "Австрийская империя",
+          }],
+        },
+      }],
+      warUpdates: "austrian-german-war-1912~start~Австрийская империя~German Empire~1~Hostilities begin",
+    };
+    assert.equal(validateWarLedgerPayload(candidate, { world }), "", `title=${title}`);
+  }
+});
+
+test("opposing military control operations can establish hostilities without a locale-specific verb", () => {
+  const candidate = {
+    events: [{
+      id: "e-control",
+      date: "1912-04-08",
+      title: "Brandenburg changes hands",
+      description: "The political status of the capital changes.",
+      kind: "military",
+      warId: "austrian-german-war-1912",
+      combatants: ["Австрийская империя", "German Empire"],
+      impacts: {
+        regionControlOps: [{
+          op: "control",
+          regionId: "region: Berlin",
+          fromCode: "German Empire",
+          toCode: "Австрийская империя",
+        }],
+      },
+    }],
+    warUpdates: "austrian-german-war-1912~start~Австрийская империя~German Empire~1~Hostilities begin",
+  };
+  assert.equal(validateWarLedgerPayload(candidate, { world }), "");
+});
+
+test("Russian war-like wording without military kind and opposing combatants cannot open a war", () => {
+  const candidate = {
+    events: [{
+      id: "e-claim",
+      date: "1912-04-08",
+      title: "Австрийские власти заявляют, что занимают Берлин в политических переговорах",
+      description: "No hostile forces or battlefield action are recorded.",
+      kind: "diplomacy",
+      warId: "austrian-german-war-1912",
+      impacts: {
+        regionControlOps: [{
+          op: "control",
+          regionId: "region: Berlin",
+          fromCode: "German Empire",
+          toCode: "Австрийская империя",
+        }],
+      },
+    }],
+    warUpdates: "austrian-german-war-1912~start~Австрийская империя~German Empire~1~War",
+  };
+  assert.match(validateWarLedgerPayload(candidate, { world }), /cannot create a canonical war/);
+});
+
+test("a concise Russian war-start title is enough when the event names both belligerents", () => {
+  const candidate = {
+    events: [{
+      id: "e-war-start",
+      date: "1912-04-08",
+      title: "Австро-германская война начинается",
+      description: "Австрийская империя и German Empire начинают открытые боевые действия.",
+      kind: "military",
+      warId: "austrian-german-war-1912",
+      combatants: ["Австрийская империя", "German Empire"],
+    }],
+    warUpdates: "austrian-german-war-1912~start~Австрийская империя~German Empire~1~The Austro-German War begins",
+  };
+  assert.equal(validateWarLedgerPayload(candidate, { world }), "");
+});
+
+test("the final battle may end the war in the same event, but later combat may not", () => {
+  const activeWorld = {
+    ...world,
+    wars: [{
+      id: "austrian-german-war-1912",
+      status: "active",
+      sideA: ["Австрийская империя"],
+      sideB: ["German Empire"],
+      startedDate: "1912-02-24",
+    }],
+  };
+  const finalBattle = {
+    id: "e-final",
+    date: "1912-04-08",
+    title: "Австрийские войска берут Берлин; германские силы капитулируют",
+    description: "После боя защитники складывают оружие.",
+    kind: "military",
+    warId: "austrian-german-war-1912",
+    combatants: ["Австрийская империя", "German Empire"],
+    impacts: {
+      regionControlOps: [{
+        op: "control",
+        regionId: "region: Berlin",
+        fromCode: "German Empire",
+        toCode: "Австрийская империя",
+      }],
+    },
+  };
+  const ending = {
+    events: [finalBattle],
+    warUpdates: "austrian-german-war-1912~end~Австрийская империя,German Empire~~1~Capitulation after Berlin falls",
+  };
+  assert.equal(validateWarLedgerPayload(ending, { world: activeWorld }), "");
+  assert.equal(
+    applyWarUpdates({
+      world: activeWorld,
+      updates: decodeWarUpdates(ending.warUpdates),
+      events: ending.events,
+      stopDate: "1912-04-08",
+      round: 2,
+    }).wars[0].status,
+    "ended",
+  );
+
+  const laterBattle = {
+    ...finalBattle,
+    id: "e-later",
+    date: "1912-04-09",
+    title: "The German army counterattacks after capitulation",
+  };
+  assert.match(
+    validateWarLedgerPayload({ events: [finalBattle, laterBattle], warUpdates: ending.warUpdates }, { world: activeWorld }),
+    /is ended, not active/,
+  );
+});
+
 test("a declaration with no matching warUpdates record is rejected", () => {
   const error = validateWarLedgerPayload({ events: declaration(), warUpdates: "" }, { world });
   assert.match(error, /narrates a canonical war transition but has no matching warUpdates record/);

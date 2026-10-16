@@ -904,6 +904,9 @@ export const formatDateReadable = (value) => {
 
 export const buildDifficultyGuidance = (difficulty, mode = "general") => {
   const normalized = normalizeString(difficulty).toLowerCase().replace(/[\s_]+/g, "-");
+  if (mode === "jump") {
+    return "Difficulty changes the scale of opposition, costs, casualties, time pressure, and consequences around the player's orders. It never changes whether an explicit player-ordered or player-declared outcome happens: carry that outcome through as fact, then make the world respond to it.";
+  }
   const intro = mode === "chats"
     ? "Diplomatic concessions and cooperation should scale with the difficulty."
     : "Long-term success and geopolitical leverage should scale with the difficulty.";

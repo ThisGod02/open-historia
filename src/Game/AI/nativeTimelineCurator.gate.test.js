@@ -55,6 +55,26 @@ test("an event with a hard consequence is never worth one: it is kept whatever i
     assert.deepEqual(candidatesWorthJudging({ events: atWar, priorEvents: PRIOR }), []);
 });
 
+test("an event resolving a player order is mechanically protected from curator removal", async () => {
+    const order = event(
+        "The capital is secured",
+        "The government takes control of the named capital and establishes its authority.",
+        { impacts: { actionIds: ["action-player-capital"] } },
+    );
+    assert.deepEqual(candidatesWorthJudging({ events: [order], priorEvents: PRIOR }), []);
+    const result = await curateGeneratedEventsWithHidden({
+        events: [order],
+        priorEvents: [event(order.title, order.description, { date: "2014-02-01" })],
+        game: {},
+        world: {},
+        actions: [{ id: "action-player-capital", title: "Take the capital", status: "planned" }],
+        mode: "jump",
+        analyzeBatch: harshAnalyst(),
+    });
+    assert.equal(result.events.length, 1);
+    assert.deepEqual(result.events[0].impacts.actionIds, ["action-player-capital"]);
+});
+
 test("a word-for-word repeat on the same date is removed without an analyst, so it asks for none", () => {
     const repeat = { ...PRIOR[1] };
     assert.deepEqual(candidatesWorthJudging({ events: [repeat], priorEvents: PRIOR }), []);

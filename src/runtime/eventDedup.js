@@ -51,11 +51,24 @@ export const eventCanonicalKey = (event) => {
 
 // Keep only the generated events that are NOT a restatement of an event already in
 // `baseEvents` (the pre-turn log) or of an earlier event in the same batch.
-export const dedupeGeneratedEvents = (baseEvents, generatedEvents, { keyOf = eventContentKey } = {}) => {
-  const seen = new Set((Array.isArray(baseEvents) ? baseEvents : []).map((event) => keyOf(event)));
+export const dedupeGeneratedEvents = (
+  baseEvents,
+  generatedEvents,
+  { keyOf = eventContentKey, preserveActionLinked = false } = {},
+) => {
+  const actionKey = (event) => {
+    const ids = Array.isArray(event?.impacts?.actionIds)
+      ? [...new Set(event.impacts.actionIds.map(norm).filter(Boolean))].sort()
+      : [];
+    return ids.length ? `action:${ids.join("\u0000")}` : "";
+  };
+  const keyFor = (event) => preserveActionLinked && actionKey(event)
+    ? actionKey(event)
+    : keyOf(event);
+  const seen = new Set((Array.isArray(baseEvents) ? baseEvents : []).map(keyFor));
   const fresh = [];
   for (const event of Array.isArray(generatedEvents) ? generatedEvents : []) {
-    const key = keyOf(event);
+    const key = keyFor(event);
     if (seen.has(key)) continue;
     seen.add(key);
     fresh.push(event);

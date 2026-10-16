@@ -15,6 +15,7 @@ import { warmCountryLabelCollections } from "./countryLabels.js";
 import { warmsWholeMapArchives } from "./deviceProfile.js";
 import { logDebugEvent } from "./debugLog.js";
 import { isBrowserOnline } from "./networkStatus.js";
+import { loadBundledAiConnection } from "../Game/AI/providerConfig.js";
 
 export const STARTUP_TIME_BUDGET_MS = 30_000;
 const INITIAL_VIEWPORT = {
@@ -107,6 +108,7 @@ const STARTUP_TASKS = [
     deps: [],
     run: ({ signal }) =>
       Promise.all([
+        loadBundledAiConnection(),
         warmJson(JSON_URLS.game, { signal }),
         warmJson(JSON_URLS.prompts, { signal }),
         warmJson(JSON_URLS.colors, { signal }),

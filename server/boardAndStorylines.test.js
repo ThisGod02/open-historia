@@ -130,6 +130,37 @@ test("a routine administrative event is a Hidden event too", () => {
   assert.deepEqual(screened.hidden.map((row) => row.route), ["ROUTINE_ADMINISTRATIVE_PROCESS"]);
 });
 
+test("an unresolved diplomatic conference without a decision is rejected as an open loop", () => {
+  const screened = screenOne({
+    id: "event-open-loop",
+    date: "1919-01-01",
+    importance: "major",
+    title: "The postwar conference leaves sovereignty unresolved",
+    description: "The conference ends with no final decision; the status remains open and the same question will be discussed again.",
+  });
+  assert.equal(screened.events.length, 0);
+  assert.equal(screened.dropped[0]?.route, "DIPLOMATIC_OPEN_LOOP");
+});
+
+test("an agenda report cannot bypass the diplomatic open-loop guard", () => {
+  const screened = screenOne({
+    id: "event-agenda-report",
+    date: "1919-01-02",
+    importance: "major",
+    title: "The conference commission agrees the agenda",
+    description: "The commission records the issues for further negotiation.",
+    impacts: {
+      reports: [{
+        op: "create",
+        title: "Conference agenda",
+        body: "The final status remains open. This protocol is not a peace treaty and does not transfer sovereignty.",
+      }],
+    },
+  });
+  assert.equal(screened.events.length, 0);
+  assert.equal(screened.dropped[0]?.route, "DIPLOMATIC_OPEN_LOOP");
+});
+
 test("an event judged untrue is rejected, never Hidden", () => {
   const screened = screenOne(
     {

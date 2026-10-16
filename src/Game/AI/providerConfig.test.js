@@ -19,12 +19,19 @@ globalThis.localStorage = {
 
 const config = await import("./providerConfig.js");
 const { clearDebugLog, getDebugLogEntries } = await import("../../runtime/debugLog.js");
+const originalFetch = globalThis.fetch;
+const originalWindow = globalThis.window;
 
 // Every test starts AFTER the one-time switch to the default Gemini list has
 // run (resetToGeminiDefaultChain), the way an installed game has once it has
 // been opened once on this update; the tests of the switch itself clear the
 // marker to see it fire.
 test.beforeEach(() => { store.clear(); store.set("ai_gemini_default_chain_v3", "1"); });
+test.afterEach(() => {
+  globalThis.fetch = originalFetch;
+  if (originalWindow === undefined) delete globalThis.window;
+  else globalThis.window = originalWindow;
+});
 
 // A one-entry list to start from, for the tests about how the list is worked:
 // a model the player chose is theirs alone. (With none — or with the old
@@ -128,6 +135,62 @@ test("a fresh install starts with an empty Gemini Connection and the default Gem
   assert.equal(new Set(config.getFallbackList().map(({ connectionId }) => connectionId)).size, 1, "all on the one Gemini Connection");
   assert.equal(config.getConnections().length, 1);
   assert.equal(config.isFallbackListConfigured(), false, "so the start-of-game prompt still asks for a key");
+});
+
+test("server-provided CheapVibeCode seeds the first-run Fallback list with DeepSeek", async () => {
+  globalThis.window = {};
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, "/api/ai/bootstrap");
+    assert.equal(options.cache, "no-store");
+    return {
+      ok: true,
+      json: async () => ({
+        configured: true,
+        connection: {
+          provider: "openai-compatible",
+          endpoint: "https://ru.cheapvibecode.ru/v1",
+          apiKey: "sk-cvc-test-only",
+          model: "deepseek-v4.1-flash",
+          source: "environment",
+        },
+      }),
+    };
+  };
+
+  await config.loadBundledAiConnection();
+  const [entry] = config.getResolvedFallbackList();
+  assert.deepEqual(
+    [entry.provider, entry.connectionName, entry.endpoint, entry.model, entry.apiKey],
+    ["openai-compatible", "CheapVibeCode", "https://ru.cheapvibecode.ru/v1", "deepseek-v4.1-flash", "sk-cvc-test-only"],
+  );
+  assert.equal(config.isFallbackListConfigured(), true);
+});
+
+test("server-provided CheapVibeCode takes the first slot but preserves an existing Gemini backup", async () => {
+  store.set("api_provider", "gemini");
+  store.set("gemini_api_key", "AIzaEXISTINGGEMINIKEY");
+  store.set("gemini_model", "gemini-3.5-flash");
+  assert.equal(config.getResolvedFallbackList()[0].provider, "gemini");
+
+  globalThis.window = {};
+  globalThis.fetch = async () => ({
+    ok: true,
+    json: async () => ({
+      connection: {
+        provider: "openai-compatible",
+        endpoint: "https://ru.cheapvibecode.ru/v1",
+        apiKey: "sk-cvc-test-only",
+        model: "deepseek-v4.1-flash",
+      },
+    }),
+  });
+  await config.loadBundledAiConnection();
+
+  const list = config.getResolvedFallbackList();
+  assert.deepEqual(list.map(({ provider, connectionName, model }) => [provider, connectionName, model]), [
+    ["openai-compatible", "CheapVibeCode", "deepseek-v4.1-flash"],
+    ["gemini", "Gemini", "gemini-3.5-flash"],
+  ]);
 });
 
 // OpenAI serves dozens of models and used to be asked which one to use. The

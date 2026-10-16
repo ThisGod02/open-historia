@@ -116,6 +116,24 @@ test("ownership update removes a polity label when its canonical region membersh
   assert.ok(result.ownershipTransitionData.features.every((feature) => Number.isFinite(feature.properties.sweepDy)));
 });
 
+test("large ownership updates skip decorative transition geometry", async () => {
+  const out = await send({
+    requestId: 250,
+    type: "update-ownership",
+    geometryEpoch: "g1",
+    ownershipOverrides: { a1: "C", a2: "C", b1: "C" },
+    regionClaimants: {},
+    labelNames: { A: "A", B: "B", C: "C" },
+    affectedOwners: ["A", "B", "C"],
+    changedRegionIds: ["a1", "a2", "b1"],
+    animateOwnershipTransition: false,
+  });
+  assert.equal(out.some((message) => message?.messageType === "ownership-transition-ready"), false);
+  const result = out.find((message) => message?.messageType === "cartography-result");
+  assert.ok(result?.boundaryPatch);
+  assert.equal(result?.ownershipTransitionData?.features?.length ?? 0, 0);
+});
+
 test("forceFullSnapshot returns a self-contained current boundary snapshot after an unpublished worker revision", async () => {
   const out = await send({
     requestId: 3,
@@ -359,4 +377,34 @@ test("a dispute the world ended stays ended; one it never recorded shows the map
   assert.deepEqual(await disputes(201, {}), { d1: ["B"], d2: ["B"] }, "nothing recorded: the map's own claims show");
   assert.deepEqual(await disputes(202, { d1: [] }), { d2: ["B"] }, "an ended dispute stays ended");
   assert.deepEqual(await disputes(203, { d1: ["C"] }), { d1: ["C"], d2: ["B"] }, "the world's live list wins");
+});
+
+test("large animated ownership batches use lightweight fade metadata, not directional frontiers", async () => {
+  const features = Array.from({ length: 9 }, (_, index) =>
+    rectangle(`fade-${index}`, "A", index, index + 1));
+  await send({
+    requestId: 251,
+    type: "initialize",
+    geometryEpoch: "fade-g1",
+    regions: { type: "FeatureCollection", features },
+    ownershipOverrides: {},
+    regionClaimants: {},
+    labelNames: { A: "A", B: "B" },
+  });
+  const ownershipOverrides = Object.fromEntries(features.map((feature) => [feature.id, "B"]));
+  const out = await send({
+    requestId: 252,
+    type: "update-ownership",
+    geometryEpoch: "fade-g1",
+    ownershipOverrides,
+    regionClaimants: {},
+    labelNames: { A: "A", B: "B" },
+    affectedOwners: ["A", "B"],
+    changedRegionIds: features.map((feature) => feature.id),
+    animateOwnershipTransition: true,
+  });
+  const early = out.find((message) => message?.messageType === "ownership-transition-ready");
+  assert.equal(early?.ownershipTransitionData?.features?.length, 9);
+  assert.ok(early.ownershipTransitionData.features.every((feature) => feature.properties.transitionMode === "fade"));
+  assert.ok(early.ownershipTransitionData.features.every((feature) => !("frontierSegments" in feature.properties)));
 });

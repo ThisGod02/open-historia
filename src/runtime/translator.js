@@ -661,6 +661,14 @@ export const translateLabel = (text) => {
   return text;
 };
 
+// Synchronous lookup for small dynamic UI vocabularies (popup labels/statuses).
+// Do not queue here: if a string is not in the pack, return its source text and
+// let the normal DOM scan translate the rendered node asynchronously.
+export const translateInterfaceLabel = (text) => {
+  if (!translatorActive || typeof text !== "string") return text;
+  return book.get(text) || text;
+};
+
 // Proactively queue content that exists as data but may not be rendered yet
 // (e.g. freshly fetched Community-hub posts). Only unknown strings cost a call.
 export const enqueueStrings = (strings) => {

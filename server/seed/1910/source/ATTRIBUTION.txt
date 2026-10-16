@@ -1,0 +1,6 @@
+Historical political-boundary data for the 1910 campaign is derived from
+Historical Basemaps by Andrei Ourednik and contributors.
+Source: https://github.com/aourednik/historical-basemaps (world_1914.geojson)
+The source repository distributes its work under GPL-3.0; see the accompanying
+LICENSE file in that project. This is a historical approximation and should be
+verified against scholarly sources before academic use.

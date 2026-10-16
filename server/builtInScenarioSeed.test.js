@@ -1,7 +1,7 @@
 // Run: node --test server/builtInScenarioSeed.test.js
 //
-// The built-in Modern Day scenario ships as a seed (server/seed/default) with a
-// hand-drawn map of its own, and the server copies it into the data directory:
+// The built-in 1910 scenario ships as a seed (server/seed/default) with its
+// adapted world map, and the server copies it into the data directory:
 // on a first run, and again when the seed carries a newer map than the install
 // (world.json `builtInMap`). The stock GADM world that every scenario without a
 // map of its own renders on has its own home (server/data/stock). What has to
@@ -108,7 +108,7 @@ after(() => {
   for (const root of roots) rmSync(root, { recursive: true, force: true });
 });
 
-test("the seed is a complete scenario whose world matches its map", () => {
+test("the seed is a complete 1910 scenario whose world matches its map", () => {
   assert.ok(STAMP, "world.json carries a builtInMap stamp");
   const regions = readJson(path.join(SEED_DIR, "regions.geojson"));
   const cities = readJson(path.join(SEED_DIR, "cities.geojson"));
@@ -127,11 +127,36 @@ test("the seed is a complete scenario whose world matches its map", () => {
   }
   assert.equal(seedWorld.customRegions, true);
   assert.equal(seedWorld.customCities, true);
+  assert.equal(seedWorld.language, "Russian");
+  assert.equal(seedWorld.allowedUnitTypes.includes("armor"), false);
+  assert.equal(seedWorld.allowedUnitTypes.includes("air"), false);
+  assert.equal(seedWorld.allowedUnitTypes.includes("artillery"), false);
+  assert.ok(seedWorld.allowedUnitTypes.includes("cavalry"));
+  assert.equal(seedWorld.statsSheet, undefined, "the 1910 sandbox does not ship a separate stat/economy sheet");
+  assert.equal(existsSync(path.join(SEED_DIR, "stats.json")), false);
   assert.ok(owners.has(readJson(path.join(SEED_DIR, "game.json")).country), "the seed's starting country is on the map");
+  assert.equal(readJson(path.join(SEED_DIR, "game.json")).startDate, "1910-01-01");
+  assert.equal(readJson(path.join(SEED_DIR, "scenario.json")).name, "Мир 1910");
+  assert.equal(seedWorld.startingTimelineText.includes("игрок"), true);
+  assert.equal(seedWorld.simulationRules.includes("Не добавляй экономические показатели"), true);
+  assert.equal(seedWorld.polityOverrides["Russian Empire"].color, "#36834d");
+  assert.equal(seedWorld.polityOverrides["Great Qing"].color, "#d6b03a");
+  assert.equal(seedWorld.polityOverrides["United Kingdom"].color, "#b9423e");
+  assert.equal(seedWorld.polityOverrides["British Raj"].color, "#bb4b46");
+  const historicalSource = readJson(path.join(SERVER_DIR, "seed", "1910", "source", "world_1914.geojson"));
+  assert.equal(historicalSource.features.length, 177);
+  assert.equal(
+    readJson(path.join(SEED_DIR, "scenario.json")).countryNameOverrides["Russian Empire"],
+    "Российская империя",
+  );
+  for (const city of cities.features.filter((feature) => feature.properties?.capital === "primary")) {
+    assert.ok(owners.has(city.properties.owner), `capital ${city.properties.city} belongs to a polity on the map`);
+  }
   const meta = readJson(path.join(SEED_DIR, "scenario.json"));
   assert.equal(meta.createdAt, meta.updatedAt, "the seed is an untouched scenario");
   assert.ok(existsSync(path.join(SEED_DIR, "colors.json")));
-  assert.ok(Number.isInteger(seedWorld.builtInRevision) && seedWorld.builtInRevision >= 2, "the seed carries the revision its renamed countries shipped in");
+  assert.equal(seedWorld.builtInRevision, 2, "the first historical-world revision is newer than upstream content");
+  assert.match(seedWorld.builtInMap, /^pax-historia-world-1910-[a-f0-9]+$/);
 });
 
 test("a fresh data directory gets the whole seed", () => {
@@ -144,6 +169,7 @@ test("a fresh data directory gets the whole seed", () => {
   assert.equal(readJson(path.join(dir, "cities.geojson")).features.length, readJson(path.join(SEED_DIR, "cities.geojson")).features.length);
   assert.ok(existsSync(path.join(dir, "colors.json")));
   assert.ok(existsSync(path.join(dir, "cover-image.bin")));
+  assert.ok(existsSync(path.join(dir, "scenario-data-placeholder.txt")));
   assert.ok(!existsSync(path.join(dir, "prompts.json")), "prompts are the code's current defaults, not the seed's snapshot");
   const meta = readJson(path.join(dir, "scenario.json"));
   assert.equal(meta.createdAt, meta.updatedAt, "seeded is untouched");
@@ -257,6 +283,23 @@ test("a built-in that already holds the seed's map but lost its record is comple
   assert.equal(readJson(path.join(gameDir, "game-instance.json")).scenarioId, "default", "the campaign stays on the built-in");
   assert.ok(existsSync(path.join(dir, "colors.json")));
   assert.equal(readJson(path.join(dir, "cities.geojson")).features.length, readJson(path.join(SEED_DIR, "cities.geojson")).features.length);
+});
+
+test("refreshing the built-in removes old optional stats data absent from the 1910 seed", () => {
+  const root = freshRoot();
+  runStore(root, `store.ensureScenarioStore(); ${report("{}")}`);
+  const dir = path.join(root, "scenarios", "default");
+  writeJson(path.join(dir, "world.json"), {
+    ...readJson(path.join(dir, "world.json")),
+    builtInRevision: 0,
+  });
+  writeJson(path.join(dir, "stats.json"), {});
+  const result = runStore(root, `
+    store.ensureScenarioStore();
+    ${report("{ revision: store.getScenarioDetails('default').data.world.builtInRevision }")}
+  `);
+  assert.equal(result.revision, seedWorld.builtInRevision);
+  assert.equal(existsSync(path.join(root, "scenarios", "default", "stats.json")), false);
 });
 
 test("a packaged install from before the redraw — meta and the stock map, no world.json — keeps its campaign on the stock world", () => {

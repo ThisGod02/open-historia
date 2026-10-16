@@ -111,6 +111,8 @@ const ownershipTransitionVertexCount = (geometry) => {
 };
 const OWNERSHIP_FLOOD_MAX_VERTEX_COUNT = 24000;
 const OWNERSHIP_FLOOD_PREP_BUDGET_MS = 350;
+const MAX_DIRECTIONAL_OWNERSHIP_REGIONS = 8;
+const OWNERSHIP_FADE_DURATION_MS = 420;
 
 // Globe projection renders a label's own high-latitude countries oversized
 // relative to their outline — confirmed (issue #6) to be text-only (fills
@@ -346,7 +348,8 @@ const ownerFoldKey = (value) =>
   String(value ?? "")
     .normalize("NFD")
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "");
+    .replace(/\p{M}/gu, "")
+    .replace(/[^\p{L}\p{N}]+/gu, "");
 
 // The same fold for a label as the player reads it, which may be in any script
 // (runtime/translator.js): folded to a-z, every Chinese, Arabic or Cyrillic name
@@ -414,6 +417,13 @@ const DETAIL_FILL_COLOR = [
   "coalesce",
   ["feature-state", "fillColor"],
   "rgba(0, 0, 0, 0)",
+];
+const OWNERSHIP_FADE_COLOR = ["feature-state", "ownershipFadeOldColor"];
+const OWNERSHIP_FADE_OPACITY = [
+  "case",
+  ["boolean", ["feature-state", "ownershipFadeActive"], false],
+  1,
+  0,
 ];
 
 // GADM region ids contain a dot ("DEU.2_1"); author-drawn regions ("reg_...")
@@ -1489,7 +1499,7 @@ const WorldMap = ({ isGlobe = false }) => {
     try {
       if (typeof source?.updateData === "function") source.updateData({ removeAll: true });
       else source?.setData?.(EMPTY_FEATURE_COLLECTION);
-    } catch {}
+    } catch { /* Best-effort map source cleanup. */ }
   }, [map]);
 
   // A style/projection remount recreates MapLibre source objects. Rehydrate the
@@ -1507,7 +1517,7 @@ const WorldMap = ({ isGlobe = false }) => {
       const snapshot = { type: "FeatureCollection", features };
       const fallback = (error) => {
         console.warn("[map] Incremental boundary rehydrate failed; restoring snapshot:", error);
-        try { source.setData?.(snapshot); } catch {}
+        try { source.setData?.(snapshot); } catch { /* Keep the map responsive if its source was removed. */ }
       };
       try {
         if (typeof source.updateData === "function") source.updateData({ removeAll: true, add: features })?.catch?.(fallback);
@@ -2146,6 +2156,7 @@ const WorldMap = ({ isGlobe = false }) => {
           ownershipOverrides: regionOwnershipOverrides,
           regionClaimants,
           labelNames: workerLabelNames,
+          animateOwnershipTransition: true,
           // A political ownership change and a translated/display-name change can
           // land in the same React pass. Preserve both invalidation domains in
           // one worker revision so advancing the label ref cannot swallow a
@@ -2629,7 +2640,7 @@ const WorldMap = ({ isGlobe = false }) => {
               { source, id: regionId },
               { ownershipTransitionHidden: Boolean(hidden) },
             );
-          } catch {}
+          } catch { /* The style may have changed while ownership was updating. */ }
         }
       }
     };
@@ -2650,7 +2661,7 @@ const WorldMap = ({ isGlobe = false }) => {
               { source, id: regionId },
               { fillColor: toColor },
             );
-          } catch {}
+          } catch { /* Custom fill cleanup is best-effort during style changes. */ }
         }
         appliedCustomFillStateRef.current.set(regionId, toColor);
 
@@ -2661,10 +2672,147 @@ const WorldMap = ({ isGlobe = false }) => {
               { fillColor: toColor },
             );
             appliedTileFillStateRef.current.set(regionId, toColor);
-          } catch {}
+          } catch { /* Tile fill cleanup is best-effort during style changes. */ }
         }
       }
     };
+
+    const finishQueuedTransition = () => {
+      queued.animationDone = true;
+      if (queued.cartographyAccepted && queued.cartographyResult) {
+        publishOwnershipPresentation(queued);
+        ownershipTransitionByRevisionRef.current.delete(Number(queued.revision));
+      } else {
+        releaseOwnershipPresentation(queued.changedRegionIds ?? []);
+        if (queued.cartographyDiscarded || queued.cartographyFailed) {
+          ownershipTransitionByRevisionRef.current.delete(Number(queued.revision));
+        }
+      }
+    };
+
+    // A mass territorial change uses the canonical region geometries already
+    // mounted on the map. Fade a target-colour overlay in over the old fill;
+    // unlike the directional sweep this needs no polygon clipping, duplicate
+    // GeoJSON source, or per-frame geometry upload.
+    const transitionMode = String(enrichedFeatures[0]?.properties?.transitionMode ?? "")
+      .trim()
+      .toLowerCase();
+    if (transitionMode === "fade") {
+      sweep.active = true;
+      sweep.token += 1;
+      const token = sweep.token;
+      let committed = false;
+      const fadeLayers = [
+        ["ownership-fade-regions-fill", "regions-source"],
+        ["ownership-fade-custom-fill", "custom-regions-source"],
+        ["ownership-fade-repair-fill", "custom-regions-repair-source"],
+      ];
+
+      const setFadeOpacity = (opacity) => {
+        for (const [layerId] of fadeLayers) {
+          if (!mapInstance.getLayer?.(layerId)) continue;
+          try {
+            mapInstance.setPaintProperty(layerId, "fill-opacity", [
+              "*",
+              OWNERSHIP_FADE_OPACITY,
+              POLITICAL_FILL_OPACITY * opacity,
+            ]);
+          } catch { /* A map-style replacement can remove the transient layer. */ }
+        }
+      };
+      const setFadeTarget = (feature, value) => {
+        const regionId = String(feature?.properties?.id ?? feature?.id ?? "");
+        if (!regionId) return;
+        const color = String(feature?.properties?.fromColor ?? "");
+        if (!color) return;
+        for (const source of sourceIdsForRegion(regionId)) {
+          if (!mapInstance.getSource?.(source)) continue;
+          try {
+            mapInstance.setFeatureState(
+              { source, id: regionId },
+              value
+                ? { ownershipFadeOldColor: color, ownershipFadeActive: true }
+                : {},
+            );
+            if (!value) {
+              mapInstance.removeFeatureState?.(
+                { source, id: regionId },
+                "ownershipFadeOldColor",
+              );
+              mapInstance.removeFeatureState?.({ source, id: regionId }, "ownershipFadeActive");
+            }
+          } catch { /* The style may be changing; canonical colour still commits. */ }
+        }
+        if (mapInstance.getSource?.("regions-source")) {
+          try {
+            mapInstance.setFeatureState(
+              { source: "regions-source", sourceLayer: "regions", id: regionId },
+              value
+                ? { ownershipFadeOldColor: color, ownershipFadeActive: true }
+                : {},
+            );
+            if (!value) {
+              mapInstance.removeFeatureState?.(
+                { source: "regions-source", sourceLayer: "regions", id: regionId },
+                "ownershipFadeOldColor",
+              );
+              mapInstance.removeFeatureState?.(
+                { source: "regions-source", sourceLayer: "regions", id: regionId },
+                "ownershipFadeActive",
+              );
+            }
+          } catch { /* The stock tile may not be loaded at this zoom. */ }
+        }
+      };
+      const finishFade = () => {
+        if (token !== ownershipSweepRef.current.token || committed) return;
+        committed = true;
+        if (sweep.frame) cancelAnimationFrame(sweep.frame);
+        if (sweep.waitFrame) cancelAnimationFrame(sweep.waitFrame);
+        sweep.frame = 0;
+        sweep.waitFrame = 0;
+        // Prime the underlying canonical layers before removing the overlay.
+        applyTargetBaseFill();
+        for (const feature of enrichedFeatures) setFadeTarget(feature, false);
+        setFadeOpacity(0);
+        finishQueuedTransition();
+        sweep.regionIds = [];
+        sweep.active = false;
+        setOwnershipTransitionQueueEpoch((epoch) => epoch + 1);
+        mapInstance.triggerRepaint?.();
+      };
+
+      const waitForFadeLayers = () => {
+        if (token !== ownershipSweepRef.current.token) return;
+        const ready = fadeLayers.some(([layerId]) => mapInstance.getLayer?.(layerId));
+        if (!ready) {
+          sweep.waitFrame = requestAnimationFrame(waitForFadeLayers);
+          return;
+        }
+        for (const feature of enrichedFeatures) setFadeTarget(feature, true);
+        setFadeOpacity(1);
+        // Set the canonical target beneath a fully opaque old-colour overlay.
+        // Fading the overlay reveals the new owner without a blank frame.
+        applyTargetBaseFill();
+        const startedAt = performance.now();
+        const animateFade = (now) => {
+          if (token !== ownershipSweepRef.current.token) return;
+          const progress = Math.min(1, Math.max(0, (now - startedAt) / OWNERSHIP_FADE_DURATION_MS));
+          // Smoothstep avoids a hard start/stop while keeping the transition
+          // short enough not to make a committed order feel delayed.
+          const eased = progress * progress * (3 - 2 * progress);
+          setFadeOpacity(1 - eased);
+          if (progress >= 1) {
+            finishFade();
+            return;
+          }
+          sweep.frame = requestAnimationFrame(animateFade);
+        };
+        sweep.frame = requestAnimationFrame(animateFade);
+      };
+      sweep.waitFrame = requestAnimationFrame(waitForFadeLayers);
+      return;
+    }
 
     const finish = () => {
       if (token !== ownershipSweepRef.current.token || committed) return;
@@ -2684,23 +2832,14 @@ const WorldMap = ({ isGlobe = false }) => {
       // If not, reveal the target base fill now and let the accepted derived
       // cartography catch up as soon as its worker result arrives.
       applyTargetBaseFill();
-      queued.animationDone = true;
-      if (queued.cartographyAccepted && queued.cartographyResult) {
-        publishOwnershipPresentation(queued);
-        ownershipTransitionByRevisionRef.current.delete(Number(queued.revision));
-      } else {
-        releaseOwnershipPresentation(queued.changedRegionIds ?? []);
-        if (queued.cartographyDiscarded || queued.cartographyFailed) {
-          ownershipTransitionByRevisionRef.current.delete(Number(queued.revision));
-        }
-      }
+      finishQueuedTransition();
       setBaseHidden(false);
       try {
         if (mapInstance.getLayer?.("ownership-transition-sweep-fill")) {
           mapInstance.setPaintProperty("ownership-transition-sweep-fill", "fill-opacity", 0);
         }
-      } catch {}
-      try { sweep.floodLayer?.clearTransition?.(); } catch {}
+      } catch { /* The style may already have removed the sweep layer. */ }
+      try { sweep.floodLayer?.clearTransition?.(); } catch { /* The custom layer may already be detached. */ }
 
       sweep.regionIds = [];
       sweep.active = false;
@@ -2823,7 +2962,7 @@ const WorldMap = ({ isGlobe = false }) => {
           },
           onError: (error) => {
             if (token !== ownershipSweepRef.current.token) return;
-            try { floodLayer.clearTransition?.(); } catch {}
+            try { floodLayer.clearTransition?.(); } catch { /* A detached worker layer needs no further cleanup. */ }
             if (sweep.worker === worker && !fallbackSweepRequested) {
               requestLegacySweep(error);
               return;
@@ -2972,11 +3111,11 @@ const WorldMap = ({ isGlobe = false }) => {
     if (sweep.frame) cancelAnimationFrame(sweep.frame);
     if (sweep.waitFrame) cancelAnimationFrame(sweep.waitFrame);
     if (sweep.timeout) clearTimeout(sweep.timeout);
-    try { sweep.floodLayer?.clearTransition?.(); } catch {}
+    try { sweep.floodLayer?.clearTransition?.(); } catch { /* A detached layer has nothing left to clear. */ }
     const mapInstance = map?.getMap ? map.getMap() : map;
     try {
       if (mapInstance?.getLayer?.(OWNERSHIP_FLOOD_LAYER_ID)) mapInstance.removeLayer(OWNERSHIP_FLOOD_LAYER_ID);
-    } catch {}
+    } catch { /* The map can unmount while its layer is being removed. */ }
     sweep.floodLayer = null;
     sweep.active = false;
     ownershipTransitionQueueRef.current = [];
@@ -3299,6 +3438,19 @@ const WorldMap = ({ isGlobe = false }) => {
           filter={stockRegionsVisibilityFilter}
           paint={stockRegionsFillPaint}
         />
+        <Layer
+          id="ownership-fade-regions-fill"
+          type="fill"
+          minzoom={STOCK_REGION_HANDOFF_ZOOM}
+          source-layer="regions"
+          beforeId="regions-outline"
+          filter={stockRegionsVisibilityFilter}
+          paint={{
+            "fill-color": OWNERSHIP_FADE_COLOR,
+            "fill-opacity": OWNERSHIP_FADE_OPACITY,
+            "fill-antialias": false,
+          }}
+        />
         {/* Striped fill for disputed GADM regions on the crisp tile geometry —
             fades in with the tile fills, exactly like the color layer above. */}
         {disputedTileStops.length > 0 && (
@@ -3376,6 +3528,17 @@ const WorldMap = ({ isGlobe = false }) => {
             "fill-outline-color": CUSTOM_FILL_COLOR,
           }}
         />
+        <Layer
+          id="ownership-fade-custom-fill"
+          type="fill"
+          beforeId="polity-boundaries-shadow"
+          filter={["all"]}
+          paint={{
+            "fill-color": OWNERSHIP_FADE_COLOR,
+            "fill-opacity": OWNERSHIP_FADE_OPACITY,
+            "fill-antialias": false,
+          }}
+        />
         {/* Only the province strokes disappear at overview zoom. Keep the
             source and fills mounted so province selection still works. */}
         <Layer
@@ -3425,6 +3588,17 @@ const WorldMap = ({ isGlobe = false }) => {
             "fill-opacity": customAuthoredFillOpacity,
             "fill-antialias": false,
             "fill-outline-color": CUSTOM_FILL_COLOR,
+          }}
+        />
+        <Layer
+          id="ownership-fade-repair-fill"
+          type="fill"
+          beforeId="polity-boundaries-shadow"
+          filter={["all"]}
+          paint={{
+            "fill-color": OWNERSHIP_FADE_COLOR,
+            "fill-opacity": OWNERSHIP_FADE_OPACITY,
+            "fill-antialias": false,
           }}
         />
         <Layer

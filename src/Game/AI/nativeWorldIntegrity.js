@@ -76,6 +76,26 @@ const PROCESS_ONLY_POLITY_UPDATE_RE =
 const CONCRETE_POLITY_OUTCOME_RE =
   /\b(pass(?:es|ed)?|adopt(?:s|ed)?|enact(?:s|ed)?|approv(?:e|es|ed)|implement(?:s|ed)?|appoint(?:s|ed)?|resign(?:s|ed)?|dismiss(?:es|ed)?|dissolv(?:e|es|ed)|reorganiz(?:e|es|ed)|reform(?:s|ed)?|establish(?:es|ed)|abolish(?:es|ed)|ratif(?:y|ies|ied)|decree(?:s|d)?|takes?\s+office|government\s+(?:falls|forms)|constitution(?:al)?\s+(?:change|reform)|coup|law\s+(?:passes|is\s+enacted))\b/i;
 
+const DIPLOMATIC_OPEN_LOOP_RE =
+  /\b(?:conference|summit|talks?|negotiations?|mediation|consultations?|переговор(?:ы|ов)?|конференци(?:я|и)|саммит|посредничеств(?:о|а))\b[\s\S]{0,260}\b(?:remains?\s+open|unresolved|no\s+(?:final\s+)?decision|without\s+(?:an?\s+)?agreement|status\s+remains?|still\s+disputed|вопрос[^.]{0,80}(?:открыт|не\s+решен|без\s+решения)|статус[^.]{0,80}(?:открыт|не\s+решен)|решение[^.]{0,80}не\s+принято)\b/i;
+const DIPLOMATIC_RESOLUTION_RE =
+  /\b(?:accept(?:s|ed)?\s+(?:the\s+)?(?:terms|settlement|proposal|transfer|sovereignty|agreement)|reject(?:s|ed)?|counteroffer|counter[- ]proposal|ultimatum|deadline|sign(?:s|ed)?|ratif(?:y|ies|ied)|agree(?:s|d)?\s+(?:to\s+the\s+)?(?:terms|deal|treaty|settlement)|break(?:s|ing)?\s+off|withdraw(?:s|n)?|отверг(?:ает|ну[л]?)?|прин(?:ял|ято)\s+(?:условия|договор|предложение|решение|суверенитет)|контрпредложени|ультиматум|дедлайн|крайний\s+срок|подпис(?:ал|ано)|разрыва?ет|отозва)\b/i;
+
+const diplomaticOpenLoopReason = (event) => {
+  const impacts = event?.impacts && typeof event.impacts === "object" ? event.impacts : {};
+  const reportText = normalizeArray(impacts.reports)
+    .map((report) => `${normalizeString(report?.title)} ${normalizeString(report?.body)} ${normalizeString(report?.note)}`)
+    .join(" ");
+  const text = `${normalizeString(event?.title)} ${normalizeString(event?.description)} ${reportText}`;
+  if (!DIPLOMATIC_OPEN_LOOP_RE.test(text) || DIPLOMATIC_RESOLUTION_RE.test(text)) return "";
+  const hasCanonicalConsequence = [
+    "regionControlOps", "regionTransfers", "regionClaims", "unitOps",
+    "markerOps", "polityChanges", "projectOps", "groupOps", "actionIds",
+  ].some((key) => normalizeArray(impacts[key]).length);
+  if (hasCanonicalConsequence || normalizeArray(event?.storylineIds).length) return "";
+  return "diplomatic conference/negotiation ended with the same unresolved question and no accepted, rejected, counter-offer, deadline, treaty, or concrete consequence";
+};
+
 
 const ROUTINE_ADMINISTRATIVE_CUE_RE =
   /\b(?:technical review|committee review|working group|administrative implementation|implementation review|compliance review|compliance tracking|inspection protocol|inspection standards|regulatory harmonization|protocol refinement|procedural update|standards update|monitoring framework|coordination mechanism|advisory committee|streamlined (?:procedures|protocols|standards)|finaliz(?:e|es|ed) (?:technical|administrative|inspection|compliance|procedural|regulatory)|publishes? (?:a )?(?:routine )?(?:review|assessment|report)|reports? on implementation)\b/i;
@@ -1957,6 +1977,17 @@ export const screenGeneratedWorldEvents = ({
     strippedNoOpRegionControlOps += controlSanitized.removed;
 
     const event = controlSanitized.event;
+
+    const diplomaticLoopReason = diplomaticOpenLoopReason(event);
+    if (diplomaticLoopReason) {
+      dropped.push({
+        id: normalizeString(event?.id),
+        title: normalizeString(event?.title),
+        route: "DIPLOMATIC_OPEN_LOOP",
+        reason: diplomaticLoopReason,
+      });
+      continue;
+    }
 
     const wartimeReason = falseNonBelligerentWartimeReason(
       event,

@@ -158,35 +158,72 @@ test("the ban is on inventing a rivalry, not on hostility", () => {
   }
 });
 
-// The title is the headline; the description is the article under it. The
-// descriptions used to restate their headlines in 25-50 words, under rules that
-// forbade commentary; the owner asked for the story instead (2026-09-26).
-test("an event is a headline and the story under it, with no word cap", () => {
+// The title is the headline; the description is the compact story under it.
+// Long narrative guidance made short time jumps hit provider generation limits.
+test("an event is a headline with concise, consequential prose", () => {
   for (const task of JUMP_TASKS) {
     const brief = template(task).slice(template(task).indexOf(EDITABLE.quality));
-    assert.match(brief, /The title is the headline of a news article/);
-    assert.match(brief, /The description is the article under that headline\. It tells the story of what happened/);
-    assert.match(brief, /it never just says the headline again in more words/);
-    assert.match(brief, /A minor event is at least a full paragraph/);
-    assert.match(brief, /A description that tells the story:/);
-    for (const gone of ["25–50", "25-50", "words strictly", "[Event Voice]", "Report, do not judge", "[Flags]"]) {
+    assert.match(brief, /Every event has a clear headline and a concise, factual story/);
+    assert.match(brief, /Keep the description to 2-4 sentences, normally 40-90 words/);
+    assert.match(brief, /a quotation is optional and only belongs when it is short and reliable/);
+    for (const gone of [
+      "A minor event is at least a full paragraph",
+      "a major one runs to several paragraphs",
+      "as a markdown quote",
+      "25–50",
+      "25-50",
+      "words strictly",
+      "[Event Voice]",
+      "Report, do not judge",
+      "[Flags]",
+    ]) {
       assert.ok(!template(task).includes(gone), `${task}: ${gone} is back`);
     }
   }
 });
 
-test("a jump asks for as many events as the period holds, not two to four a month", () => {
+test("both time-skip prompts treat explicit player outcomes as facts, not success rolls", () => {
+  for (const task of JUMP_TASKS) {
+    const text = template(task);
+    assert.match(text, /An explicit player order or declared result is a fact, not an attempt/);
+    assert.match(text, /never assign it a probability/);
+    assert.match(text, /never whether the player's stated result occurs/);
+    assert.match(text, /Do not wait for another polity's consent or reduce the result to an attempt/);
+    assert.match(text, /Distance, logistics, technology, opposition and difficulty never veto a declared result/);
+    assert.match(text, /Macro transfer scope is exact/);
+    assert.match(text, /one regionTransfers entry per region/);
+    assert.doesNotMatch(text, /only the chance and the degree of success vary/);
+    assert.doesNotMatch(text, /need that polity's agreement or a fait accompli/);
+  }
+
+  const doctrine = gameplaySource.slice(
+    gameplaySource.indexOf("const PLAYER_COMMAND_DOCTRINE"),
+    gameplaySource.indexOf("].join(\"\\n\");", gameplaySource.indexOf("const PLAYER_COMMAND_DOCTRINE")),
+  );
+  assert.match(doctrine, /outcome the player states or clearly orders as a fact/);
+  assert.match(doctrine, /They may react afterwards/);
+  assert.match(doctrine, /do not silently substitute another place/);
+});
+
+test("both jump modes ask for no more than twenty AI-created events", () => {
   const scope = section(template("jumpForward"), EDITABLE.scope);
-  assert.match(scope, /Write as many distinct, newsworthy events as the period really holds/);
+  assert.match(scope, /return no more than 20 AI-created events/);
+  assert.match(scope, /Twenty is a hard ceiling/);
+  assert.match(scope, /scenario-scripted events added by the engine are extra/);
+  assert.match(scope, /up to 20 orders/);
+  const autoScope = section(template("autoJumpForward"), EDITABLE.scope);
+  assert.match(autoScope, /no more than 20 AI-created events/);
+  assert.match(autoScope, /Twenty is a hard ceiling/);
+  assert.match(autoScope, /scenario-scripted events added by the engine are extra/);
   assert.ok(!template("jumpForward").includes("2 to 4 events per month"));
 });
 
-// The live records are rendered into the template, so the template decides where
-// they sit; the request itself ends on the writing reminder.
-test("the live records go into the template, and the request ends on the writing reminder", () => {
+// The live records are rendered into the template, then the date-aware writing
+// reminder narrows the general prose guidance on a short fixed jump.
+test("the live records go into the template, and short jumps get a final compact-writing reminder", () => {
   assert.equal(defaultPrompts.helpers.JUMP_LIVE_STATE, "${jumpLiveState}");
   assert.match(gameplaySource, /jumpLiveState: await buildJumpLiveState\(/);
-  assert.match(gameplaySource, /buildScriptedEventsInstruction\(scriptedBeats\), WRITING_REMINDER\]/);
+  assert.match(gameplaySource, /buildScriptedEventsInstruction\(scriptedBeats\), WRITING_REMINDER, buildEventLengthReminder\(spanDays\)/);
   for (const gone of ["[Native World Director — authoritative", "[Diplomatic Consequence Bridge]", "[Actions You Can Take]", "[Counterfactual Knowledge Boundary"]) {
     assert.ok(!gameplaySource.includes(gone), `${gone} is appended again`);
   }

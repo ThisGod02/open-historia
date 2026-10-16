@@ -16,6 +16,7 @@ import { buildRegionRenderRepair, isExplicitAuthoredGeometry } from "./regionRen
 import { buildGroupAreaIndex, deriveGroupAreas } from "./groupAreas.js";
 
 const EMPTY_FC = Object.freeze({ type: "FeatureCollection", features: [] });
+const MAX_DIRECTIONAL_OWNERSHIP_REGIONS = 8;
 
 let cachedRegions = EMPTY_FC;
 let cachedRegionsUrl = "";
@@ -761,6 +762,7 @@ const buildOwnershipTransitionData = ({
   changedRegionIds,
 }) => {
   const changedSet = new Set((changedRegionIds ?? []).map(String));
+  const transitionMode = changedSet.size > MAX_DIRECTIONAL_OWNERSHIP_REGIONS ? "fade" : "directional";
   const features = [];
   for (const rawId of changedSet) {
     const id = String(rawId);
@@ -773,12 +775,14 @@ const buildOwnershipTransitionData = ({
     const fromOwner = toCountryName(previousOwnershipOverrides?.[id] ?? baseOwner ?? "");
     const toOwner = toCountryName(ownershipOverrides?.[id] ?? baseOwner ?? "");
     if (!fromOwner || !toOwner || fromOwner === toOwner) continue;
-    const direction = transitionDirectionForChange({
-      regionId: id,
-      toOwner,
-      previousOwnershipOverrides,
-      changedSet,
-    });
+    const direction = transitionMode === "directional"
+      ? transitionDirectionForChange({
+          regionId: id,
+          toOwner,
+          previousOwnershipOverrides,
+          changedSet,
+        })
+      : null;
     features.push({
       type: "Feature",
       id,
@@ -787,11 +791,14 @@ const buildOwnershipTransitionData = ({
         id,
         fromOwner,
         toOwner,
-        sweepDx: direction.dx,
-        sweepDy: direction.dy,
-        sweepMode: direction.mode,
-        sweepBasis: direction.basis,
-        frontierSegments: direction.frontierSegments ?? [],
+        transitionMode,
+        ...(direction ? {
+          sweepDx: direction.dx,
+          sweepDy: direction.dy,
+          sweepMode: direction.mode,
+          sweepBasis: direction.basis,
+          frontierSegments: direction.frontierSegments ?? [],
+        } : {}),
       },
     });
   }
@@ -837,6 +844,7 @@ const updateOwnershipCartography = ({
   affectedOwners = [],
   changedRegionIds = [],
   forceFullSnapshot = false,
+  animateOwnershipTransition = true,
   forcedLabelOwners = [],
   onTransitionReady = null,
 }) => {
@@ -858,11 +866,13 @@ const updateOwnershipCartography = ({
   // the cheap presentation payload from PRE-MUTATION topology and publish it
   // immediately; the main thread can start the sweep while this same worker
   // continues deriving the new borders and polity labels in parallel.
-  const ownershipTransitionData = buildOwnershipTransitionData({
-    previousOwnershipOverrides,
-    ownershipOverrides,
-    changedRegionIds: exactChangedIds,
-  });
+  const ownershipTransitionData = animateOwnershipTransition
+    ? buildOwnershipTransitionData({
+        previousOwnershipOverrides,
+        ownershipOverrides,
+        changedRegionIds: exactChangedIds,
+      })
+    : EMPTY_FC;
   if (typeof onTransitionReady === "function" && ownershipTransitionData.features.length) {
     onTransitionReady({ ownershipTransitionData, exactChangedIds });
   }
@@ -965,6 +975,7 @@ self.onmessage = async ({ data: message }) => {
     changedRegionIds = [],
     geometryEpoch = "",
     forceFullSnapshot = false,
+    animateOwnershipTransition = true,
   } = message ?? {};
   if (!requestId) return;
 
@@ -1097,6 +1108,7 @@ self.onmessage = async ({ data: message }) => {
           affectedOwners,
           changedRegionIds,
           forceFullSnapshot,
+          animateOwnershipTransition,
           forcedLabelOwners,
           onTransitionReady: ({ ownershipTransitionData, exactChangedIds }) => {
             self.postMessage({

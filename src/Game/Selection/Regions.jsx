@@ -14,6 +14,7 @@ import { openCountryPanel } from "./CountryPanel.jsx";
 import { useIsMobile } from "../../runtime/useIsMobile.js";
 import { APP_HEIGHT, MAP_CARD_OPENED, SAFE_BOTTOM, SAFE_LEFT, SAFE_RIGHT, SAFE_TOP, useShortTouchScreen, useTouchPrimary } from "../../runtime/mobileUi.js";
 import { useBackToClose } from "../../runtime/backToClose.js";
+import { translateInterfaceLabel } from "../../runtime/translator.js";
 
 let _setSelection = null;
 let _currentSelection = null;
@@ -554,9 +555,10 @@ const RegionPopup = () => {
             ? "Occupied"
             : isContested
                 ? "Contested"
-                : isUnclaimed
-                    ? "Unclaimed"
-                    : "Administered";
+                    : isUnclaimed
+                        ? "Unclaimed"
+                        : "Administered";
+    const uiText = (source) => translateInterfaceLabel(source) || source;
     const displayPolity = (code) => {
         if (!code) return "Unclaimed Territory";
         const identity = resolvePolityIdentity(code, worldState, {
@@ -630,8 +632,8 @@ const RegionPopup = () => {
             }}
             >
             {flagState.status === "loading" && selection?.GID_0
-            ? "Loading..."
-            : "No flag available"}
+            ? uiText("Loading...")
+            : uiText("No flag available")}
             </div>
         )}
         <button
@@ -701,15 +703,15 @@ const RegionPopup = () => {
             <>
             <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", margin: "7px 0 5px" }} />
             <div style={{ display: "grid", gridTemplateColumns: "76px minmax(0, 1fr)", gap: "3px 7px", fontSize: "11px", lineHeight: 1.35 }}>
-            <span style={{ color: "rgba(255,255,255,0.42)" }}>Sovereign</span>
+            <span style={{ color: "rgba(255,255,255,0.42)" }}>{uiText("Sovereign")}</span>
             <span style={{ color: "rgba(255,255,255,0.84)", wordBreak: "break-word" }}>{displayPolity(sovereignCode)}</span>
-            <span style={{ color: "rgba(255,255,255,0.42)" }}>Controlled by</span>
+            <span style={{ color: "rgba(255,255,255,0.42)" }}>{uiText("Controlled by")}</span>
             <span style={{ color: "rgba(255,255,255,0.84)", wordBreak: "break-word" }}>{displayPolity(controllerCode)}</span>
-            <span style={{ color: "rgba(255,255,255,0.42)" }}>Status</span>
-            <span style={{ color: isOccupied ? "#fbbf24" : "rgba(255,255,255,0.84)", fontWeight: 700 }}>{controlStatus}</span>
+            <span style={{ color: "rgba(255,255,255,0.42)" }}>{uiText("Status")}</span>
+            <span style={{ color: isOccupied ? "#fbbf24" : "rgba(255,255,255,0.84)", fontWeight: 700 }}>{uiText(controlStatus)}</span>
             {claimants.length > 0 && (
                 <>
-                <span style={{ color: "rgba(255,255,255,0.42)" }}>Claimants</span>
+                <span style={{ color: "rgba(255,255,255,0.42)" }}>{uiText("Claimants")}</span>
                 <span style={{ color: "rgba(255,255,255,0.84)", wordBreak: "break-word" }}>
                 {claimants.map(displayPolity).join(", ")}
                 </span>
@@ -724,7 +726,7 @@ const RegionPopup = () => {
             <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", margin: "7px 0 5px" }} />
             <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", lineHeight: 1.35, minWidth: 0 }}>
             <span aria-hidden="true" style={{ width: "10px", height: "10px", borderRadius: "2px", flexShrink: 0, background: controllingGroup.color, boxShadow: "0 0 0 1px rgba(0,0,0,0.55)" }} />
-            <span style={{ color: "rgba(255,255,255,0.42)", flexShrink: 0 }}>Group control</span>
+            <span style={{ color: "rgba(255,255,255,0.42)", flexShrink: 0 }}>{uiText("Group control")}</span>
             <span style={{ color: controllingGroup.color, fontWeight: 700, minWidth: 0, wordBreak: "break-word" }}>{controllingGroup.name}</span>
             </div>
             {controllingGroup.description && (

@@ -14,9 +14,15 @@
 // src/ imports, like ownerMigration.js.
 
 const str = (value) => String(value ?? "").trim();
-// The same identity as ownerNames.js ownerIdentityKey: case, diacritics and
-// punctuation do not make a different country.
-const identity = (value) => str(value).normalize("NFD").toLowerCase().replace(/[^a-z0-9]+/g, "");
+// Case, diacritics and punctuation do not make a different country. Keep all
+// Unicode letters/numbers: the ASCII-only filter made every Cyrillic name
+// normalize to "", so samePolityName("Австрийская империя", ...) never matched
+// and renamePolityInWorld left the map's region owners under the old name.
+const identity = (value) => str(value)
+  .normalize("NFD")
+  .toLowerCase()
+  .replace(/\p{M}/gu, "")
+  .replace(/[^\p{L}\p{N}]+/gu, "");
 const isRecord = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
 const unique = (list) => [...new Set(list.map(str).filter(Boolean))];
 

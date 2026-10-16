@@ -148,6 +148,31 @@ test("a claim-only refresh cannot erase a queued ownership rebuild", () => {
   assert.deepEqual(dispatched[1].payload.regionClaimants, { A: ["Three"] });
 });
 
+test("coalesced ownership changes preserve the transition request for the worker to choose the batch fade", () => {
+  const dispatched = [];
+  const scheduler = createPoliticalCartographyScheduler({
+    dispatch: (request) => dispatched.push(request),
+    setTimer: () => 1,
+    clearTimer: () => {},
+  });
+
+  const first = scheduler.enqueue({
+    type: "update-ownership",
+    ownershipOverrides: {},
+    changedRegionIds: ["r1", "r2", "r3", "r4", "r5"],
+    animateOwnershipTransition: true,
+  });
+  scheduler.enqueue({
+    type: "update-ownership",
+    ownershipOverrides: {},
+    changedRegionIds: ["r6", "r7", "r8", "r9"],
+    animateOwnershipTransition: true,
+  });
+
+  scheduler.complete(first);
+  assert.equal(dispatched[1].payload.animateOwnershipTransition, true);
+});
+
 
 
 test("political ownership diff returns exact changed ids and both affected owners", () => {

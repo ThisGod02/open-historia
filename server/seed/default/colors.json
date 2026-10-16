@@ -1,1 +1,1262 @@
-{"Australia":[86,122,106],"Canada":[168,110,125],"Czechia":[100,188,56],"Dominican Republic":[140,138,104],"Ethiopia":[117,108,134],"Georgia":[154,132,121],"Greenland":[206,197,90],"Hungary":[155,118,93],"Ireland":[91,133,98],"Japan":[208,203,192],"Mexico":[99,120,92],"Mongolia":[118,109,98],"New Zealand":[120,106,131],"Republic of the Congo":[177,129,115],"Romania":[156,139,95],"Ukraine":[113,143,174],"United Kingdom":[102,87,115],"Akrotiri and Dhekelia":[179,66,66],"Aland Islands":[70,200,108],"Algeria":[183,154,117],"American Samoa":[204,193,117],"Anguilla":[123,197,99],"Antigua and Barbuda":[141,132,104],"Barbados":[155,115,120],"Belize":[108,129,151],"Bermuda":[61,209,204],"Bonaire, Sint Eustatius and Saba":[47,71,198],"Bosnia and Herzegovina":[142,128,107],"British Virgin Islands":[185,102,219],"Burkina Faso":[154,107,107],"Cabo Verde":[79,56,188],"Cayman Islands":[212,110,207],"Central African Republic":[123,146,122],"Cook Islands":[140,138,104],"Cote d'Ivoire":[200,174,70],"DR Congo":[117,109,136],"Faroe Islands":[214,160,81],"French Guiana":[188,56,166],"French Polynesia":[140,209,61],"French Southern Territories":[99,123,197],"Grenada":[138,118,92],"Guadeloupe":[179,66,121],"Guam":[96,200,70],"Guernsey":[204,151,117],"Isle of Man":[139,90,206],"Jamaica":[130,144,105],"Jersey":[66,178,179],"Libya":[172,154,111],"Malaysia":[108,135,138],"Martinique":[99,197,124],"Mayotte":[80,175,190],"Montenegro":[142,104,96],"Montserrat":[68,66,179],"NA":[194,117,204],"Nepal":[128,106,126],"New Caledonia":[110,212,115],"North Macedonia":[90,206,198],"Northern Mariana Islands":[121,179,66],"Papua New Guinea":[124,106,94],"Puerto Rico":[212,110,155],"Reunion":[206,140,90],"Saint Barthelemy":[179,66,177],"Saint Helena, Ascension and Tris":[160,200,70],"Saint Kitts and Nevis":[112,107,136],"Saint Lucia":[141,132,104],"Saint Pierre and Miquelon":[56,188,81],"Saint Vincent and the Grenadines":[130,144,105],"Sao Tome and Principe":[198,47,145],"Solomon Islands":[150,116,95],"Sri Lanka":[158,114,95],"Svalbard and Jan Mayen":[155,206,90],"East Timor":[154,135,106],"Tokelau":[56,164,188],"Turkmenistan":[122,141,111],"Turks and Caicos Islands":[80,190,151],"Tuvalu":[198,90,206],"United Arab Emirates":[125,140,112],"United States Minor Outlying Islands":[200,70,95],"Virgin Islands, U.S.":[61,209,206],"Wallis and Futuna":[197,99,170],"Egypt":[168,135,102],"Argentina":[145,137,165],"Venezuela":[140,109,103],"Brunei":[160,122,99],"Guyana":[107,135,147],"Dominica":[141,110,125],"Bahamas":[113,138,109],"Czech Republic":[141,126,155],"North Korea":[138,98,105],"Germany":[101,116,114],"Nigeria":[138,110,99],"Somalia":[170,134,105],"Micronesia":[106,139,137],"Brazil":[49,93,69],"France":[77,120,147],"Gabon":[113,138,109],"Luxembourg":[161,115,135],"Jordan":[161,132,107],"Greece":[104,135,163],"Samoa":[141,132,104],"Afghanistan":[136,112,92],"Iran":[120,107,87],"Mauritania":[138,106,132],"Pakistan":[82,102,83],"Italy":[107,147,100],"Bahrain":[157,116,116],"Belgium":[184,154,73],"Bhutan":[119,128,154],"Cambodia":[141,107,135],"Denmark":[152,108,114],"Lesotho":[107,140,120],"Morocco":[149,109,98],"Norway":[89,107,130],"Saudi Arabia":[186,161,123],"Spain":[193,166,110],"Swaziland":[94,131,144],"Sweden":[87,126,160],"Thailand":[129,118,156],"Netherlands":[168,115,50],"Tonga":[150,116,95],"Kyrgyzstan":[143,129,115],"Laos":[124,112,94],"Lebanon":[160,124,98],"Nagorno-Karabakh":[117,95,114],"Uruguay":[136,112,94],"Bangladesh":[100,133,102],"China":[185,95,115],"Bolivia":[142,130,105],"Portugal":[119,144,110],"Transnistria":[113,106,116],"Andorra":[138,118,92],"Liechtenstein":[111,125,150],"Abkhazia":[107,114,101],"Albania":[133,99,112],"Angola":[106,120,102],"Armenia":[156,110,102],"Austria":[165,181,95],"Azerbaijan":[109,136,123],"Belarus":[139,131,160],"Benin":[107,140,120],"Botswana":[94,131,144],"Bulgaria":[117,141,104],"Burundi":[161,141,112],"Cape Verde":[155,115,120],"Cameroon":[112,107,136],"Chad":[102,122,105],"Chile":[166,110,95],"Taiwan":[162,87,105],"Colombia":[183,131,119],"Costa Rica":[141,110,125],"Ivory Coast":[146,126,155],"Croatia":[164,110,118],"Cuba":[176,106,138],"Cyprus":[119,128,154],"Djibouti":[170,134,105],"Ecuador":[108,129,151],"El Salvador":[111,125,150],"Equatorial Guinea":[177,129,115],"Estonia":[78,115,136],"Fiji":[122,138,102],"Finland":[196,200,194],"Ghana":[140,142,96],"Guatemala":[161,115,135],"Guinea":[177,129,115],"Guinea-Bissau":[125,117,146],"Haiti":[108,129,151],"Honduras":[102,122,105],"Iceland":[135,154,165],"India":[154,120,94],"Indonesia":[125,105,120],"Iraq":[128,106,82],"Kazakhstan":[168,183,182],"Kenya":[130,116,95],"Kiribati":[136,112,94],"South Korea":[224,220,207],"Kosovo":[143,154,117],"Latvia":[142,27,52],"Liberia":[102,122,105],"Lithuania":[163,144,81],"Macedonia":[163,132,104],"Madagascar":[195,187,141],"Malawi":[106,139,137],"Maldives":[141,110,125],"Mali":[94,131,144],"Malta":[113,138,109],"Mauritius":[160,122,99],"Moldova":[134,125,157],"Mozambique":[150,116,95],"Namibia":[155,138,144],"Nauru":[140,138,104],"Nicaragua":[107,135,147],"Niger":[146,126,155],"Palau":[106,139,137],"Panama":[130,144,105],"Paraguay":[112,107,136],"Peru":[183,144,119],"Poland":[185,123,141],"Rwanda":[154,107,107],"San Marino":[161,115,135],"Senegal":[122,138,102],"Serbia":[122,126,152],"Seychelles":[138,118,92],"Sierra Leone":[119,128,154],"Singapore":[166,110,110],"Slovenia":[126,150,125],"Somaliland":[98,123,116],"South Africa":[164,123,134],"South Ossetia":[139,123,101],"South Sudan":[117,104,88],"Suriname":[160,122,99],"Tajikistan":[138,115,134],"Gambia":[125,117,146],"Marshall Islands":[154,107,107],"Philippines":[118,142,165],"Sudan":[157,117,90],"Myanmar":[102,124,109],"Trinidad and Tobago":[123,146,122],"Tunisia":[158,117,94],"Turkey":[162,141,104],"Uganda":[161,141,112],"Uzbekistan":[121,155,140],"Vanuatu":[161,141,112],"Yemen":[142,115,92],"Zambia":[122,111,141],"Zimbabwe":[116,101,111],"Russia":[54,91,75],"Western Sahara":[158,139,109],"São Tomé and Príncipe":[111,125,150],"Slovakia":[135,153,109],"Vietnam":[169,98,98],"Eritrea":[123,146,122],"Israel":[115,145,169],"Kuwait":[150,134,104],"Palestine":[125,120,102],"Qatar":[140,93,104],"Oman":[160,113,101],"Switzerland":[183,115,106],"Syria":[138,102,85],"Togo":[146,126,155],"Northern Cyprus":[139,118,95],"Comoros":[107,140,120],"Tanzania":[101,125,108],"United States":[85,123,152]}
+{
+  "Luxembourg": [
+    161,
+    115,
+    135
+  ],
+  "Switzerland": [
+    183,
+    115,
+    106
+  ],
+  "United Kingdom": [
+    185,
+    66,
+    62
+  ],
+  "Bhutan": [
+    119,
+    128,
+    154
+  ],
+  "Qatar": [
+    140,
+    93,
+    104
+  ],
+  "Cuba": [
+    176,
+    106,
+    138
+  ],
+  "United States": [
+    84,
+    126,
+    156
+  ],
+  "Haiti": [
+    108,
+    129,
+    151
+  ],
+  "Dominican Republic": [
+    140,
+    138,
+    104
+  ],
+  "Philippines": [
+    118,
+    142,
+    165
+  ],
+  "Puerto Rico": [
+    212,
+    110,
+    155
+  ],
+  "Nicaragua": [
+    107,
+    135,
+    147
+  ],
+  "Costa Rica": [
+    141,
+    110,
+    125
+  ],
+  "Sierra Leone": [
+    119,
+    128,
+    154
+  ],
+  "Ceylon": [
+    141,
+    144,
+    122
+  ],
+  "Panama": [
+    130,
+    144,
+    105
+  ],
+  "Guyana": [
+    107,
+    135,
+    147
+  ],
+  "Liberia": [
+    102,
+    122,
+    105
+  ],
+  "Belgian Congo": [
+    184,
+    154,
+    73
+  ],
+  "Angola": [
+    119,
+    144,
+    110
+  ],
+  "Malawi": [
+    102,
+    87,
+    115
+  ],
+  "Bolivia": [
+    142,
+    130,
+    105
+  ],
+  "Mozambique": [
+    119,
+    144,
+    110
+  ],
+  "Madagascar (France)": [
+    77,
+    120,
+    147
+  ],
+  "German South-West Africa": [
+    142,
+    145,
+    123
+  ],
+  "Chile": [
+    166,
+    110,
+    95
+  ],
+  "Botswana": [
+    102,
+    87,
+    115
+  ],
+  "Paraguay": [
+    112,
+    107,
+    136
+  ],
+  "South Africa": [
+    102,
+    87,
+    115
+  ],
+  "Swaziland": [
+    94,
+    131,
+    144
+  ],
+  "Lesotho": [
+    107,
+    140,
+    120
+  ],
+  "New Zealand": [
+    120,
+    106,
+    131
+  ],
+  "Argentina": [
+    145,
+    137,
+    165
+  ],
+  "Iceland": [
+    135,
+    154,
+    165
+  ],
+  "Belgium": [
+    195,
+    166,
+    50
+  ],
+  "Spain": [
+    193,
+    166,
+    110
+  ],
+  "Georgia": [
+    154,
+    132,
+    121
+  ],
+  "Montenegro": [
+    142,
+    104,
+    96
+  ],
+  "Albania": [
+    133,
+    99,
+    112
+  ],
+  "Portugal": [
+    119,
+    144,
+    110
+  ],
+  "Azerbaijan": [
+    109,
+    136,
+    123
+  ],
+  "Armenia": [
+    156,
+    110,
+    102
+  ],
+  "Persia": [
+    134,
+    137,
+    115
+  ],
+  "Afghanistan": [
+    136,
+    112,
+    92
+  ],
+  "Tunisia": [
+    158,
+    117,
+    94
+  ],
+  "Mexico": [
+    99,
+    120,
+    92
+  ],
+  "Kuwait": [
+    150,
+    134,
+    104
+  ],
+  "Rattanakosin Kingdom": [
+    135,
+    138,
+    116
+  ],
+  "Belize": [
+    108,
+    129,
+    151
+  ],
+  "Guatemala": [
+    161,
+    115,
+    135
+  ],
+  "Honduras": [
+    102,
+    122,
+    105
+  ],
+  "El Salvador": [
+    111,
+    125,
+    150
+  ],
+  "Colombia": [
+    183,
+    131,
+    119
+  ],
+  "Malaya": [
+    135,
+    138,
+    116
+  ],
+  "Suriname": [
+    160,
+    122,
+    99
+  ],
+  "French Guiana": [
+    188,
+    56,
+    166
+  ],
+  "Equatorial Guinea": [
+    177,
+    129,
+    115
+  ],
+  "Ecuador": [
+    108,
+    129,
+    151
+  ],
+  "Peru": [
+    183,
+    144,
+    119
+  ],
+  "Brazil": [
+    79,
+    141,
+    98
+  ],
+  "Papua New Guinea": [
+    124,
+    106,
+    94
+  ],
+  "Australia": [
+    86,
+    122,
+    106
+  ],
+  "Uruguay": [
+    136,
+    112,
+    94
+  ],
+  "Netherlands": [
+    189,
+    117,
+    67
+  ],
+  "Nepal": [
+    128,
+    106,
+    126
+  ],
+  "Eritrea": [
+    107,
+    147,
+    100
+  ],
+  "Abyssinia": [
+    143,
+    146,
+    124
+  ],
+  "Gambia, The": [
+    139,
+    142,
+    120
+  ],
+  "Djibouti": [
+    77,
+    120,
+    147
+  ],
+  "Portuguese Guinea": [
+    136,
+    139,
+    117
+  ],
+  "Venezuela": [
+    140,
+    109,
+    103
+  ],
+  "Brunei": [
+    160,
+    122,
+    99
+  ],
+  "Netherlands Indies": [
+    135,
+    138,
+    116
+  ],
+  "Canada": [
+    204,
+    113,
+    100
+  ],
+  "Norway": [
+    89,
+    107,
+    130
+  ],
+  "Finland": [
+    196,
+    200,
+    194
+  ],
+  "Serbia": [
+    122,
+    126,
+    152
+  ],
+  "Kingdom of Italy": [
+    89,
+    139,
+    90
+  ],
+  "Romania": [
+    156,
+    139,
+    95
+  ],
+  "Austria-Hungary": [
+    180,
+    154,
+    102
+  ],
+  "French Indochina": [
+    77,
+    120,
+    147
+  ],
+  "Great Qing": [
+    214,
+    176,
+    58
+  ],
+  "Algeria": [
+    77,
+    120,
+    147
+  ],
+  "Anglo-Egyptian Sudan": [
+    102,
+    87,
+    115
+  ],
+  "Egypt": [
+    102,
+    87,
+    115
+  ],
+  "Libya": [
+    107,
+    147,
+    100
+  ],
+  "Morocco": [
+    149,
+    109,
+    98
+  ],
+  "Spanish Morocco": [
+    133,
+    136,
+    114
+  ],
+  "Spanish Sahara": [
+    193,
+    166,
+    110
+  ],
+  "Rio De Oro": [
+    140,
+    143,
+    121
+  ],
+  "Gold Coast": [
+    102,
+    87,
+    115
+  ],
+  "Togoland": [
+    137,
+    140,
+    118
+  ],
+  "Nigeria": [
+    102,
+    87,
+    115
+  ],
+  "French Equatorial Africa": [
+    77,
+    120,
+    147
+  ],
+  "French West Africa": [
+    77,
+    120,
+    147
+  ],
+  "Kamerun": [
+    141,
+    144,
+    122
+  ],
+  "German E. Africa (Tanganyika)": [
+    134,
+    137,
+    115
+  ],
+  "British East Africa": [
+    102,
+    87,
+    115
+  ],
+  "Uganda": [
+    161,
+    141,
+    112
+  ],
+  "British Somaliland": [
+    102,
+    87,
+    115
+  ],
+  "Italian Somaliland": [
+    107,
+    147,
+    100
+  ],
+  "Rhodesia": [
+    102,
+    87,
+    115
+  ],
+  "France": [
+    71,
+    120,
+    165
+  ],
+  "Arabia (Nejd)": [
+    133,
+    136,
+    114
+  ],
+  "Mongolia": [
+    118,
+    109,
+    98
+  ],
+  "Xinjiang": [
+    142,
+    145,
+    123
+  ],
+  "Tibet": [
+    133,
+    136,
+    114
+  ],
+  "Sakhalin (RU)": [
+    54,
+    91,
+    75
+  ],
+  "Antigua and Barbuda": [
+    141,
+    132,
+    104
+  ],
+  "Barbados": [
+    155,
+    115,
+    120
+  ],
+  "Dominica": [
+    141,
+    110,
+    125
+  ],
+  "Grenada": [
+    138,
+    118,
+    92
+  ],
+  "Martinique": [
+    99,
+    197,
+    124
+  ],
+  "Montserrat": [
+    68,
+    66,
+    179
+  ],
+  "Anguilla": [
+    123,
+    197,
+    99
+  ],
+  "Saint Kitts and Nevis": [
+    112,
+    107,
+    136
+  ],
+  "Saint Lucia": [
+    141,
+    132,
+    104
+  ],
+  "Saint Vincent and the Grenadines": [
+    130,
+    144,
+    105
+  ],
+  "United States Virgin Islands": [
+    139,
+    142,
+    120
+  ],
+  "Guadeloupe": [
+    179,
+    66,
+    121
+  ],
+  "Netherlands Antilles": [
+    144,
+    147,
+    125
+  ],
+  "Saint Martin": [
+    144,
+    147,
+    125
+  ],
+  "Saint Barthelemy": [
+    179,
+    66,
+    177
+  ],
+  "Ottoman Empire": [
+    145,
+    115,
+    91
+  ],
+  "Sweden": [
+    87,
+    126,
+    160
+  ],
+  "Denmark": [
+    152,
+    108,
+    114
+  ],
+  "British Protectorate": [
+    102,
+    87,
+    115
+  ],
+  "Greece": [
+    104,
+    135,
+    163
+  ],
+  "Malta": [
+    113,
+    138,
+    109
+  ],
+  "British Raj": [
+    187,
+    75,
+    70
+  ],
+  "Japan": [
+    199,
+    122,
+    104
+  ],
+  "Russian Empire": [
+    54,
+    131,
+    77
+  ],
+  "Bulgaria": [
+    117,
+    141,
+    104
+  ],
+  "German Empire": [
+    120,
+    122,
+    115
+  ],
+  "American Samoa": [
+    204,
+    193,
+    117
+  ],
+  "Fiji": [
+    122,
+    138,
+    102
+  ],
+  "Niue": [
+    135,
+    138,
+    116
+  ],
+  "Tonga": [
+    150,
+    116,
+    95
+  ],
+  "Wallis and Futuna Islands": [
+    132,
+    135,
+    113
+  ],
+  "Samoa": [
+    141,
+    132,
+    104
+  ],
+  "Rapa Nui": [
+    166,
+    110,
+    95
+  ],
+  "Hong Kong": [
+    102,
+    87,
+    115
+  ],
+  "South Korea": [
+    224,
+    220,
+    207
+  ],
+  "Nauru": [
+    140,
+    138,
+    104
+  ],
+  "Marshall Islands": [
+    154,
+    107,
+    107
+  ],
+  "Indonesia": [
+    125,
+    105,
+    120
+  ],
+  "Micronesia": [
+    106,
+    139,
+    137
+  ],
+  "Palau": [
+    106,
+    139,
+    137
+  ],
+  "Solomon Islands": [
+    150,
+    116,
+    95
+  ],
+  "Vanuatu": [
+    161,
+    141,
+    112
+  ],
+  "North Korea": [
+    138,
+    98,
+    105
+  ],
+  "East Timor": [
+    154,
+    135,
+    106
+  ],
+  "Taiwan": [
+    162,
+    87,
+    105
+  ],
+  "Malaysia": [
+    108,
+    135,
+    138
+  ],
+  "Vietnam": [
+    169,
+    98,
+    98
+  ],
+  "Kazakhstan": [
+    168,
+    183,
+    182
+  ],
+  "Ukraine": [
+    113,
+    143,
+    174
+  ],
+  "Belarus": [
+    139,
+    131,
+    160
+  ],
+  "Estonia": [
+    78,
+    115,
+    136
+  ],
+  "Latvia": [
+    142,
+    27,
+    52
+  ],
+  "Transnistria": [
+    113,
+    106,
+    116
+  ],
+  "Moldova": [
+    134,
+    125,
+    157
+  ],
+  "Lithuania": [
+    163,
+    144,
+    81
+  ],
+  "Poland": [
+    185,
+    123,
+    141
+  ],
+  "Slovakia": [
+    135,
+    153,
+    109
+  ],
+  "Hungary": [
+    155,
+    118,
+    93
+  ],
+  "Kyrgyzstan": [
+    143,
+    129,
+    115
+  ],
+  "Uzbekistan": [
+    121,
+    155,
+    140
+  ],
+  "South Ossetia": [
+    139,
+    123,
+    101
+  ],
+  "Turkey": [
+    162,
+    141,
+    104
+  ],
+  "Tajikistan": [
+    138,
+    115,
+    134
+  ],
+  "Nagorno-Karabakh": [
+    117,
+    95,
+    114
+  ],
+  "Turkmenistan": [
+    122,
+    141,
+    111
+  ],
+  "Iran": [
+    120,
+    107,
+    87
+  ],
+  "Iraq": [
+    128,
+    106,
+    82
+  ],
+  "Pakistan": [
+    82,
+    102,
+    83
+  ],
+  "India": [
+    154,
+    120,
+    94
+  ],
+  "Abkhazia": [
+    107,
+    114,
+    101
+  ],
+  "Syria": [
+    138,
+    102,
+    85
+  ],
+  "Cyprus": [
+    119,
+    128,
+    154
+  ],
+  "Northern Cyprus": [
+    139,
+    118,
+    95
+  ],
+  "Lebanon": [
+    160,
+    124,
+    98
+  ],
+  "Israel": [
+    115,
+    145,
+    169
+  ],
+  "Jordan": [
+    161,
+    132,
+    107
+  ],
+  "Palestine": [
+    125,
+    120,
+    102
+  ],
+  "Bosnia and Herzegovina": [
+    142,
+    128,
+    107
+  ],
+  "Croatia": [
+    164,
+    110,
+    118
+  ],
+  "Macedonia": [
+    163,
+    132,
+    104
+  ],
+  "Kosovo": [
+    143,
+    154,
+    117
+  ],
+  "Thailand": [
+    129,
+    118,
+    156
+  ],
+  "Laos": [
+    124,
+    112,
+    94
+  ],
+  "Myanmar": [
+    102,
+    124,
+    109
+  ],
+  "Cambodia": [
+    141,
+    107,
+    135
+  ],
+  "Singapore": [
+    166,
+    110,
+    110
+  ],
+  "Bangladesh": [
+    100,
+    133,
+    102
+  ],
+  "Oman": [
+    160,
+    113,
+    101
+  ],
+  "United Arab Emirates": [
+    125,
+    140,
+    112
+  ],
+  "Bahrain": [
+    157,
+    116,
+    116
+  ],
+  "Saudi Arabia": [
+    186,
+    161,
+    123
+  ],
+  "Yemen": [
+    142,
+    115,
+    92
+  ],
+  "Sri Lanka": [
+    158,
+    114,
+    95
+  ],
+  "Somalia": [
+    170,
+    134,
+    105
+  ],
+  "Somaliland": [
+    98,
+    123,
+    116
+  ],
+  "Madagascar": [
+    195,
+    187,
+    141
+  ],
+  "Seychelles": [
+    138,
+    118,
+    92
+  ],
+  "Maldives": [
+    141,
+    110,
+    125
+  ],
+  "Mauritius": [
+    160,
+    122,
+    99
+  ],
+  "Comoros": [
+    107,
+    140,
+    120
+  ],
+  "Kenya": [
+    130,
+    116,
+    95
+  ],
+  "Ethiopia": [
+    117,
+    108,
+    134
+  ],
+  "Sudan": [
+    157,
+    117,
+    90
+  ],
+  "Chad": [
+    102,
+    122,
+    105
+  ],
+  "Tanzania": [
+    101,
+    125,
+    108
+  ],
+  "South Sudan": [
+    117,
+    104,
+    88
+  ],
+  "DR Congo": [
+    117,
+    109,
+    136
+  ],
+  "Rwanda": [
+    154,
+    107,
+    107
+  ],
+  "Burundi": [
+    161,
+    141,
+    112
+  ],
+  "Central African Republic": [
+    123,
+    146,
+    122
+  ],
+  "Zambia": [
+    122,
+    111,
+    141
+  ],
+  "Zimbabwe": [
+    116,
+    101,
+    111
+  ],
+  "Namibia": [
+    155,
+    138,
+    144
+  ],
+  "Czech Republic": [
+    141,
+    126,
+    155
+  ],
+  "Austria": [
+    165,
+    181,
+    95
+  ],
+  "Ireland": [
+    91,
+    133,
+    98
+  ],
+  "Slovenia": [
+    126,
+    150,
+    125
+  ],
+  "Liechtenstein": [
+    111,
+    125,
+    150
+  ],
+  "San Marino": [
+    161,
+    115,
+    135
+  ],
+  "Andorra": [
+    138,
+    118,
+    92
+  ],
+  "Niger": [
+    146,
+    126,
+    155
+  ],
+  "Mauritania": [
+    138,
+    106,
+    132
+  ],
+  "Mali": [
+    94,
+    131,
+    144
+  ],
+  "Burkina Faso": [
+    154,
+    107,
+    107
+  ],
+  "Senegal": [
+    122,
+    138,
+    102
+  ],
+  "Guinea-Bissau": [
+    125,
+    117,
+    146
+  ],
+  "Gambia": [
+    125,
+    117,
+    146
+  ],
+  "Cameroon": [
+    112,
+    107,
+    136
+  ],
+  "Togo": [
+    146,
+    126,
+    155
+  ],
+  "Ghana": [
+    140,
+    142,
+    96
+  ],
+  "Benin": [
+    107,
+    140,
+    120
+  ],
+  "Ivory Coast": [
+    146,
+    126,
+    155
+  ],
+  "Guinea": [
+    177,
+    129,
+    115
+  ],
+  "Republic of the Congo": [
+    177,
+    129,
+    115
+  ],
+  "Gabon": [
+    113,
+    138,
+    109
+  ],
+  "São Tomé and Príncipe": [
+    111,
+    125,
+    150
+  ],
+  "Western Sahara": [
+    158,
+    139,
+    109
+  ],
+  "Cape Verde": [
+    155,
+    115,
+    120
+  ],
+  "Trinidad and Tobago": [
+    123,
+    146,
+    122
+  ],
+  "Bahamas": [
+    113,
+    138,
+    109
+  ],
+  "Jamaica": [
+    130,
+    144,
+    105
+  ],
+  "Kiribati": [
+    136,
+    112,
+    94
+  ],
+  "Cook Islands": [
+    140,
+    138,
+    104
+  ],
+  "Unclaimed": [
+    139,
+    142,
+    120
+  ]
+}

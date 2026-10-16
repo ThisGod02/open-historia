@@ -2423,6 +2423,8 @@ const SettingsMenu = ({
                 <div style={grid}>
                     <QuickAction title="Wiki" description="How-to pages and setup help" symbol="?" href="/wiki/" />
                     {reportBugUrl && <QuickAction title="Report a Bug" description="Open the issue/report page" symbol="!" tone="amber" href={reportBugUrl} />}
+                    <QuickAction title="Source code" description="This server's modified source · AGPL-3.0-or-later" symbol="↗" href="/source.tar.gz" />
+                    <QuickAction title="Open Historia upstream" description="Original engine and project · AGPL-3.0-or-later" symbol="↗" href="https://github.com/Open-Historia/open-historia" />
                 </div>
                 <div style={{ alignItems: isMobile ? "stretch" : "center", display: "flex", flexDirection: isMobile ? "column" : "row", gap: "0.55rem", justifyContent: "space-between" }}>
                     <span style={{ color: "rgba(255,255,255,0.24)", fontSize: "0.6rem" }}>Community</span>

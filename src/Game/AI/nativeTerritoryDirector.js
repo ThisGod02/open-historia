@@ -33,6 +33,10 @@ const WARTIME_CONTROL_PATTERN =
 const NEGATED_CONTROL_CHANGE_PATTERN =
   /\b(?:does not|did not|doesn't|didn't|fails? to|failed to|without|neither side|no side)\b[^.!?]{0,90}\b(?:take|gain|secure|establish|assume|assert|wrest|impose|capture|seize|occupy)\w*\b[^.!?]{0,50}\bcontrol\b/i;
 
+const NO_TERRITORIAL_CHANGE_PATTERN =
+  /\b(?:front|frontline|territorial situation|territory|border)\b[^.!?]{0,80}\b(?:unchanged|did not change|does not change|remained unchanged|no change)\b/i;
+const NO_TERRITORIAL_CHANGE_RU =
+  /(?:фронт|линия фронта|границ\w*|территори\w*)[^.!?]{0,100}(?:не измен\w*|остал\w* без изменений|без изменений|не произошло|ни одна сторона)/i;
 const CONTEST_PATTERN =
   /\b(battl\w*|clash\w*|combat|skirmish\w*|firefight\w*|fight\w*|contested?|disputed?|offensive|counteroffensive|attack\w*|assault\w*|siege|front(?:line)?|bridgehead|beachhead|foothold|incursion|insurrect\w*|uprising|rebellion|revolt\w*|engag\w*|seiz\w*|cross(?:es|ed|ing)? the border|cross(?:es|ed|ing)? the frontier)\b/i;
 
@@ -141,13 +145,34 @@ const sanitizeDirectorOrders = ({ events, orders }) => {
   for (let eventIndex = 0; eventIndex < events.length; eventIndex += 1) {
     const event = events[eventIndex];
     const proposed = ordersByEvent.get(eventIndex) || [];
-    if (proposed.length === 0 || !hasTerritorialContent(event)) continue;
+    if (!hasTerritorialContent(event)) continue;
 
     const text = eventText(event);
     const impacts = event?.impacts || {};
     const existing = normalizeArray(impacts.regionControlOps);
+    const existingKept = [];
     const seen = new Set(existing.map(opKey));
     const accepted = [];
+    const noTerritorialChange = NO_TERRITORIAL_CHANGE_PATTERN.test(text) || NO_TERRITORIAL_CHANGE_RU.test(text);
+    for (const existingOp of existing) {
+      const existingKind = normalizeString(existingOp?.op).toLowerCase();
+      if (noTerritorialChange && (existingKind === "contest" || existingKind === "control")) {
+        diagnostics.push({
+          eventIndex,
+          op: existingKind,
+          action: "DROP",
+          reason: "event explicitly says that the front/territorial situation did not change",
+        });
+        continue;
+      }
+      existingKept.push(existingOp);
+    }
+    if (Array.isArray(impacts.regionControlOps) && existingKept.length !== existing.length) {
+      impacts.regionControlOps = existingKept;
+    }
+    if (proposed.length === 0) continue;
+    seen.clear();
+    for (const existingOp of existingKept) seen.add(opKey(existingOp));
 
     for (const raw of proposed.slice(0, 16)) {
       const op = cloneValue(raw);
@@ -177,7 +202,7 @@ const sanitizeDirectorOrders = ({ events, orders }) => {
           reject("contest needs different nonblank fromCode and actorCode values");
           continue;
         }
-        if (!CONTEST_PATTERN.test(text)) {
+        if (noTerritorialChange || !CONTEST_PATTERN.test(text)) {
           reject("event does not actually describe an active territorial/front contest");
           continue;
         }
@@ -192,7 +217,7 @@ const sanitizeDirectorOrders = ({ events, orders }) => {
           reject("control flip needs different nonblank fromCode and toCode values");
           continue;
         }
-        if (!WARTIME_CONTROL_PATTERN.test(text) || NEGATED_CONTROL_CHANGE_PATTERN.test(text)) {
+        if (noTerritorialChange || !WARTIME_CONTROL_PATTERN.test(text) || NEGATED_CONTROL_CHANGE_PATTERN.test(text)) {
           reject("event does not explicitly say de-facto control/capture/occupation changed hands");
           continue;
         }

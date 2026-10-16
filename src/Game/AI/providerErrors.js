@@ -142,6 +142,13 @@ export const classifyProviderFailure = ({ status, payload } = {}) => {
     const code = Number(status) || 0;
     const error = payload?.error ?? payload;
     const text = errorPayloadText(error) || String(payload?.rawText ?? "");
+    // The game's own same-origin relay can reject a request before it reaches
+    // the upstream provider (e.g. Docker bridge addressing the host-published
+    // localhost server). Do not poison the API-key state or label this as a bad
+    // key: the provider never saw the request.
+    if (code === 403 && /AI relay only answers this machine|device(?:s)? on your network relay AI calls/i.test(text)) {
+        return { kind: "other", reason: "the AI request was rejected before a usable provider response was received" };
+    }
     // First: it is not the entry's fault, and the next entry may fit it. The
     // wording is kept — contextWindow.js reads the numbers out of it.
     if (isContextWindowErrorPayload(error)) return { kind: "tooBig", reason: text };

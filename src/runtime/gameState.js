@@ -76,6 +76,10 @@ export const WORLD_DEFAULTS = {
   // history, not a second world model: canonical state stays in the ledgers
   // below; the record keeps the exact previewed transaction for debugging.
   gmAudit: [],
+  // Last bounded audit of territorial resolution/application. This is
+  // diagnostic state, not a second world model: the canonical fields remain
+  // regionOwnershipOverrides, regionSovereigntyOverrides and regionClaimants.
+  territoryAudit: [],
   // Every change made outside the simulation — the GM console and each cheats
   // tool — one line each, tagged with its round, newest first; the next skip is
   // told the ones from the round it starts in. And the Game Master's standing
@@ -959,7 +963,7 @@ const normalizePendingUnitOrderEntry = (entry, index = 0) => {
   const unitId = normalizeOptionalString(entry.unitId);
   const toLng = finiteOrNull(entry.toLng);
   const toLat = finiteOrNull(entry.toLat);
-  if (!unitId || toLng === null || toLat === null) return null;
+  if (!unitId || toLng === null || toLat === null || (toLng === 0 && toLat === 0)) return null;
   const rawKind = normalizeOptionalString(entry.kind).toLowerCase();
   // Saves from before player-issued attacks were removed carry kind "attack".
   // Coerce rather than drop: the destination and targetLabel are still good, so
@@ -2360,7 +2364,6 @@ const describeUnitOpRejection = (entry) => {
     const toLng = finiteOrNull(entry.toLng ?? entry.lng);
     const toLat = finiteOrNull(entry.toLat ?? entry.lat);
     if (toLng === null || toLat === null) return `move has unusable destination (toLng=${JSON.stringify(entry.toLng)}, toLat=${JSON.stringify(entry.toLat)})`;
-    if (toLng === 0 && toLat === 0) return "move to 0,0 — the output template's placeholder, not a real position";
   }
   return `unknown op "${op}"`;
 };
@@ -2402,7 +2405,25 @@ const normalizeUnitOp = (entry) => {
   const unitId = normalizeOptionalString(entry.unitId || entry.id);
 
   if (op === "spawn") {
-    const unit = normalizeUnitEntry(entry.unit ?? entry, 0);
+    const source = entry.unit ?? entry;
+    const unit = normalizeUnitEntry(source, 0) || (() => {
+      const at = normalizeOptionalString(source.at || source.place || source.location);
+      const ownerCode = toCountryName(normalizeOptionalString(source.ownerCode || source.owner || source.code));
+      const name = normalizeOptionalString(source.name);
+      if (!at || !ownerCode || !name) return null;
+      return {
+        id: normalizeOptionalString(source.id),
+        name,
+        type: normalizeOptionalString(source.type).toLowerCase() || "infantry",
+        ownerCode,
+        strength: clampUnitStrength(source.strength ?? 100),
+        composition: normalizeOptionalString(source.composition),
+        status: normalizeOptionalString(source.status).toLowerCase(),
+        posture: normalizeOptionalString(source.posture).toLowerCase(),
+        note: normalizeOptionalString(source.note),
+        at,
+      };
+    })();
     if (!unit) return null;
     unit.source = "ai";
     return { op, unit };
@@ -2415,7 +2436,12 @@ const normalizeUnitOp = (entry) => {
   if (op === "move") {
     const toLng = finiteOrNull(entry.toLng ?? entry.lng);
     const toLat = finiteOrNull(entry.toLat ?? entry.lat);
-    if (toLng === null || toLat === null || (toLng === 0 && toLat === 0)) return null;
+    const at = normalizeOptionalString(entry.at || entry.place || entry.location);
+    // The placement pass must turn a textual `at` into coordinates before an
+    // op reaches simulation. Never let unresolved text authorize a move with
+    // null coordinates: those otherwise coerce to (0,0) and send the unit into
+    // the Gulf of Guinea.
+    if ((toLng === null || toLat === null) && !at) return null;
     const posture = normalizeOptionalString(entry.posture).toLowerCase();
     // The part of the way that is over water (unitMotion.js seaShareOf), when
     // the pass that placed the move worked it out.
@@ -2423,8 +2449,8 @@ const normalizeUnitOp = (entry) => {
     return {
       op,
       unitId,
-      toLng,
-      toLat,
+      ...(toLng !== null && toLat !== null ? { toLng, toLat } : {}),
+      ...(at ? { at } : {}),
       ...(seaShare !== null ? { seaShare: Math.max(0, Math.min(1, seaShare)) } : {}),
       regionId: normalizeOptionalString(entry.regionId),
       // Re-posturing on the move is how "this force is now massing rather than
@@ -2561,12 +2587,18 @@ export const applyUnitOpBatch = (units, orders, ops, context = {}) => {
   // through normalizeEventImpacts already (and normalizeUnitOp is idempotent),
   // but the idle pulse and tests hand us raw model output — and a raw spawn has
   // none of the unit fields this function reads.
-  const batch = normalizeArray(ops).map((op) => normalizeUnitOp(op)).filter(Boolean);
+  const batch = normalizeArray(ops)
+    .map((op) => normalizeUnitOp(op))
+    .filter((op) => op && (op.op !== "move" || (
+      Number.isFinite(op.toLng) && Number.isFinite(op.toLat)
+      && !(op.toLng === 0 && op.toLat === 0)
+    )));
 
   const dropOrder = (unitId) => {
     nextOrders = nextOrders.filter((order) => order.unitId !== unitId);
   };
   const upsertOrder = (order) => {
+    if (!order) return;
     nextOrders = [...nextOrders.filter((entry) => entry.unitId !== order.unitId), order];
   };
 
@@ -2599,8 +2631,8 @@ export const applyUnitOpBatch = (units, orders, ops, context = {}) => {
           normalizePendingUnitOrderEntry({
             unitId: unit.id,
             kind: "patrol",
-            toLng: unit.lng,
-            toLat: unit.lat,
+                toLng: unit.lng,
+                toLat: unit.lat,
             radiusKm: DEFAULT_PATROL_RADIUS_KM[unit.type] ?? 0,
             untilRound: round ? round + PATROL_ORDER_ROUNDS : 0,
             issuedRound: round,
@@ -4211,6 +4243,17 @@ const writeRegionSovereign = (world, regionId, sovereign) => {
 
 const POLITY_LIFECYCLE_STORES = ["countryStats", "countryTags", "internationalReputation", "intelligence"];
 
+const territoryStateSnapshot = (world, regionId) => ({
+  controller: normalizeOptionalString(world.regionOwnershipOverrides?.[regionId]),
+  sovereign: normalizeOptionalString(world.regionSovereigntyOverrides?.[regionId]),
+  claimants: normalizeArray(world.regionClaimants?.[regionId]).map(normalizeOptionalString).filter(Boolean),
+});
+
+const territoryStateChanged = (before, after) =>
+  before.controller !== after.controller ||
+  before.sovereign !== after.sovereign ||
+  JSON.stringify(before.claimants) !== JSON.stringify(after.claimants);
+
 const applyPolityAndTerritoryImpacts = ({
   colors, eventDate = "", eventId = "", polityChanges = [], regionClaims = [], regionControlOps = [], regionTransfers = [], resolveOwner, world,
 }) => {
@@ -4517,7 +4560,7 @@ const applyPolityAndTerritoryImpacts = ({
     delete colors[code];
     console.info(`[polity lifecycle] dissolved "${code}".`);
   }
-  return renamed;
+  return { renamed };
 };
 
 // `boardOnlyEventIds` names events that are not on the timeline — carriers for a
@@ -4586,7 +4629,18 @@ export const applyEventImpactsToWorld = ({
       ));
     }
 
-    const renamedHere = applyPolityAndTerritoryImpacts({
+    const auditedRegionIds = [...new Set([
+      ...event.impacts.regionTransfers,
+      ...event.impacts.regionControlOps,
+      ...event.impacts.regionClaims,
+      ...released.regionTransfers,
+      ...normalizeArray(released.regionControlOps),
+      ...normalizeArray(released.regionClaims),
+    ].map((entry) => normalizeOptionalString(entry?.regionId)).filter(Boolean))];
+    const beforeTerritory = new Map(
+      auditedRegionIds.map((regionId) => [regionId, territoryStateSnapshot(nextWorld, regionId)]),
+    );
+    const territoryResult = applyPolityAndTerritoryImpacts({
       colors: nextColors,
       eventDate: event.date,
       eventId: event.id,
@@ -4597,12 +4651,51 @@ export const applyEventImpactsToWorld = ({
       resolveOwner,
       world: nextWorld,
     });
-    if (renamedHere.length) {
-      renamedPolities.push(...renamedHere);
+    if (territoryResult.renamed.length) {
+      renamedPolities.push(...territoryResult.renamed);
       // The polity is keyed by its new name now: this event's unit and structure
       // ops, and every later event, must resolve either name to the new key.
       resolveOwner = createOwnerResolver(buildOwnerAliasMap(nextWorld.polityOverrides));
     }
+    const transferIds = new Set([
+      ...normalizeArray(event.impacts.regionTransfers),
+      ...normalizeArray(released.regionTransfers),
+    ].map((entry) => normalizeOptionalString(entry?.regionId)).filter(Boolean));
+    const controlIds = new Set([
+      ...normalizeArray(event.impacts.regionControlOps),
+      ...normalizeArray(released.regionControlOps),
+    ].map((entry) => normalizeOptionalString(entry?.regionId)).filter(Boolean));
+    const claimIds = new Set([
+      ...normalizeArray(event.impacts.regionClaims),
+      ...normalizeArray(released.regionClaims),
+    ].map((entry) => normalizeOptionalString(entry?.regionId)).filter(Boolean));
+    const eventTerritoryAudit = auditedRegionIds.map((regionId) => {
+        const before = beforeTerritory.get(regionId);
+        const after = territoryStateSnapshot(nextWorld, regionId);
+        const family = controlIds.has(regionId)
+          ? "regionControlOps"
+          : transferIds.has(regionId)
+            ? "regionTransfers"
+            : claimIds.has(regionId)
+              ? "regionClaims"
+              : "territory";
+        return {
+          eventId: normalizeOptionalString(event.id),
+          regionId,
+          family,
+          status: territoryStateChanged(before, after) ? "applied" : "no-change",
+          reason: territoryStateChanged(before, after)
+            ? "normalized territorial state changed"
+            : "operation was rejected, screened, or produced no normalized state change",
+          controller: after.controller,
+          sovereign: after.sovereign,
+          claimants: after.claimants,
+        };
+      });
+    nextWorld.territoryAudit = [
+      ...normalizeArray(nextWorld.territoryAudit),
+      ...eventTerritoryAudit,
+    ].slice(-200);
 
     // Groups after the land has moved, so a group can take what the same event
     // just changed hands.
@@ -4707,6 +4800,7 @@ export const applyEventImpactsToWorld = ({
   return {
     colors: nextColors,
     renamedPolities,
+    territoryAudit: nextWorld.territoryAudit ?? [],
     // Stamp the turn as the engine's. A save last written by the old classic
     // system still says "classic", which is how resumeStandingOrders knows game
     // time passed with nothing advancing its orders.

@@ -93,6 +93,10 @@ const structuredImpactReasons = (event) => {
     "unitOps",
     "markerOps",
     "createdChats",
+    // An event linked to a planned player order is its canonical resolution.
+    // Dropping it would silently erase the order's outcome while the turn
+    // still consumes the plan.
+    "actionIds",
   ]) {
     if (asArray(impacts[key]).length) result.push(key);
   }

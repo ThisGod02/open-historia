@@ -402,6 +402,11 @@ test("a rejected key or an unknown model is Unusable, with a reason the player c
     kind: "unusable", reason: "key rejected (401)",
   });
   assert.equal(classifyProviderFailure({ status: 403, payload: { error: { code: 403, status: "PERMISSION_DENIED", message: "Permission denied." } } }).reason, "key rejected (403)");
+  assert.equal(
+    classifyProviderFailure({ status: 403, payload: { error: { message: "The AI relay only answers this machine. Set OH_ALLOW_REMOTE_RELAY=1." } } }).kind,
+    "other",
+    "a local relay access denial must not mark the upstream key as rejected",
+  );
   // Gemini says a bad key with a 400.
   assert.deepEqual(classifyProviderFailure({ status: 400, payload: { error: { code: 400, status: "INVALID_ARGUMENT", message: "API key not valid. Please pass a valid API key." } } }), {
     kind: "unusable", reason: "key rejected (400)",

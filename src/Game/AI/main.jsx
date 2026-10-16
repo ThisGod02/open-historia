@@ -954,6 +954,7 @@ async function callGemini(systemPrompt, history, {
     tool,
     lookupTools,
     requireOutputTool = false,
+    reasoningBudgetTokens = 8192,
 } = {}) {
     const settings = entrySettings;
     // Lookup functions (lookupTools.js) declared beside the output function.
@@ -1026,7 +1027,7 @@ async function callGemini(systemPrompt, history, {
                     contents: geminiContentsFromHistory(history),
                     generationConfig: {
                         maxOutputTokens: Math.max(1, Number(maxTokens) || 8192),
-                        ...(getReasoningEnabled() ? { thinkingConfig: { thinkingBudget: 8192 } } : {}),
+                        ...(getReasoningEnabled() ? { thinkingConfig: { thinkingBudget: Math.max(1, Number(reasoningBudgetTokens) || 8192) } } : {}),
                     },
                     ...customParams,
                 }),
@@ -1085,7 +1086,7 @@ async function callGemini(systemPrompt, history, {
         const requestUrl = tool ? getGeminiStreamUrl(model, apiKey) : getGeminiUrl(model, apiKey);
         // Reasoning toggle (settings): let thinking-capable Gemini models think.
         const generationConfig = {
-            ...(getReasoningEnabled() ? { thinkingConfig: { thinkingBudget: 8192 } } : {}),
+            ...(getReasoningEnabled() ? { thinkingConfig: { thinkingBudget: Math.max(1, Number(reasoningBudgetTokens) || 8192) } } : {}),
             ...(jsonAnswer ? { responseMimeType: "application/json" } : {}),
         };
         const response = await fetch(requestUrl, {
@@ -1264,6 +1265,8 @@ async function callOpenAIStyleChatCompletions({
     tokenLimitField = "max_tokens",
     lookupTools,
     requireOutputTool = false,
+    reasoningEffort = "medium",
+    reasoningHeadroomTokens = REASONING_HEADROOM_TOKENS,
 }) {
     // Lookup functions (lookupTools.js) beside the output function. On the
     // round that must end in an answer they are left out altogether: with one
@@ -1352,7 +1355,7 @@ async function callOpenAIStyleChatCompletions({
                 // fell back to non-tool modes, which DID carry it). Providers that
                 // reject the tools+reasoning combination surface the documented
                 // error below and the call retries without it.
-                ...(getReasoningEnabled() && !disableToolReasoning ? { reasoning_effort: "medium" } : {}),
+                ...(getReasoningEnabled() && !disableToolReasoning ? { reasoning_effort: reasoningEffort } : {}),
                 // Thinking-class local models (Qwen3, Seed-OSS) key on
                 // enable_thinking, not reasoning_effort — textgen/oobabooga
                 // honors it per-request, llama.cpp/LM Studio ignore unknown
@@ -1369,7 +1372,7 @@ async function callOpenAIStyleChatCompletions({
                 // Add headroom for the thinking, and drop the cap entirely once a reply
                 // has already come back as reasoning-only.
                 ...(Number(maxTokens) > 0 && !liftedCapForReasoning
-                    ? { [tokenLimitField]: Number(maxTokens) + (wantsReasoning && !tool ? REASONING_HEADROOM_TOKENS : 0) }
+                    ? { [tokenLimitField]: Number(maxTokens) + (wantsReasoning && !tool ? Math.max(0, Number(reasoningHeadroomTokens) || 0) : 0) }
                     : {}),
                 ...requestCustomParams,
                 ...(structuredMode === "tool" && disableToolReasoning ? { reasoning_effort: "none" } : {}),
@@ -2469,6 +2472,7 @@ export async function callAI(systemPrompt, history, opts = {}) {
         lookupTools: Array.isArray(lookups?.tools) ? lookups.tools.length : 0,
         maxTokens: providerOpts.maxTokens ?? "(provider maximum)",
         reasoning: getReasoningEnabled(),
+        ...(providerOpts.reasoningEffort ? { reasoningEffort: providerOpts.reasoningEffort } : {}),
     };
 
     // What the call actually cost, and how long it sat before answering.

@@ -211,7 +211,7 @@ test("an army nothing places is still raised on its owner's own land", async () 
 
 // The squadron itself, on the map it was raised on: Modern Day's own, where the
 // player's game calls Russia the Russian Federation and its capital is Moskva.
-const MODERN_DAY = JSON.parse(readFileSync(new URL("../../../server/seed/default/regions.geojson", import.meta.url), "utf8"))
+const MODERN_DAY = JSON.parse(readFileSync(new URL("../../../server/test-fixtures/modern-day-regions.geojson", import.meta.url), "utf8"))
     .features.filter((feature) => feature?.geometry)
     .map((feature) => ({
         id: String(feature.properties.id),

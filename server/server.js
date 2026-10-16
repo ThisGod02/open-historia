@@ -63,6 +63,7 @@ import {
   allowedCorsOrigin,
   crossOriginWriteAllowed,
   isAllowedHubUrl,
+  isAllowedAiRelayCaller,
   isLoopbackAddress,
   parseByteRange,
   relayTargetAllowed,
@@ -77,6 +78,14 @@ import { createDiscordPresence, DISCORD_APPLICATION_ID, normalizePresence } from
 const app = express();
 const PORT = process.env.PORT || 3000;
 const distDir = path.join(__dirname, "../dist");
+// Large runtime map assets live outside the packaged UI in Docker and desktop
+// builds. Serve them before the SPA fallback; otherwise `/assets/*.json`
+// returns index.html with status 200, and placement code mistakes that HTML
+// for a city catalogue.
+const runtimeAssetsDir = process.env.OH_ASSETS_DIR
+  ? path.resolve(process.env.OH_ASSETS_DIR)
+  : path.join(__dirname, "../public/assets");
+const sourceArchivePath = path.join(__dirname, "..", "pax-corresponding-source.tar.gz");
 
 // WHERE THIS LISTENS is the real access control. Every /api route is
 // unauthenticated by design — it is a personal game server, and the app has no
@@ -145,6 +154,15 @@ const lanAddresses = () =>
 // still refusing a body that exists only to OOM the server.
 const jsonParser = express.json({ limit: "64mb" });
 const largeJsonParser = express.json({ limit: "512mb" });
+
+// AGPL network-source offer: serve the Corresponding Source archive generated
+// from the exact source tree used to build this running image.
+app.get("/source.tar.gz", (_req, res) => {
+  if (!fs.existsSync(sourceArchivePath)) {
+    return res.status(404).type("text/plain").send("Corresponding source archive is not present in this build.");
+  }
+  res.download(sourceArchivePath, "pax-historia-1910-source.tar.gz");
+});
 const uploadParser = express.raw({ type: () => true, limit: "512mb" });
 
 // The Android app's connect screen lives on the WebView's own origin, so its
@@ -299,17 +317,39 @@ const streamBinaryFile = (req, res, sourcePath, contentType = "application/octet
 // device that plays through this server — the phone app and desktop browser
 // see the same choice, instead of each browser keeping its own.
 const uiSettingsFile = path.join(DATA_DIR, "ui-settings.json");
+const UI_DEFAULT_LANGUAGE = process.env.OH_UI_LANGUAGE || "ru";
 
 const readUiSettings = () => {
   try {
-    return JSON.parse(fs.readFileSync(uiSettingsFile, "utf8"));
+    return { language: UI_DEFAULT_LANGUAGE, ...JSON.parse(fs.readFileSync(uiSettingsFile, "utf8")) };
   } catch {
-    return {};
+    return { language: UI_DEFAULT_LANGUAGE };
   }
 };
 
 app.get("/api/ui-settings", (_req, res) => {
   res.json(readUiSettings());
+});
+
+// Server-provided default AI gateway. This carries only the exact endpoint,
+// model and key the deployment was configured with: never defaults, never a
+// user-entered connection. The browser seeds a fresh Fallback list with it;
+// existing player connections always answer first and are never overwritten.
+app.get("/api/ai/bootstrap", (_req, res) => {
+  const endpoint = process.env.AI_BASE_URL || process.env.OPENAI_BASE_URL || "";
+  const apiKey = process.env.AI_API_KEY || process.env.OPENAI_API_KEY || "";
+  const model = process.env.AI_MODEL || "";
+  const fallbackEndpoint = process.env.AI_FALLBACK_BASE_URL || "";
+  const fallbackApiKey = process.env.AI_FALLBACK_API_KEY || "";
+  const fallbackModel = process.env.AI_FALLBACK_MODEL || "";
+  const primary = endpoint && apiKey && model
+    ? { provider: "openai-compatible", endpoint, apiKey, model, source: "environment" }
+    : null;
+  const backup = fallbackEndpoint && fallbackApiKey && fallbackModel
+    ? { provider: "openai-compatible", endpoint: fallbackEndpoint, apiKey: fallbackApiKey, model: fallbackModel, source: "environment" }
+    : null;
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ configured: Boolean(primary), connection: primary, fallbackConnection: backup });
 });
 
 // Language packs. Two layers merge:
@@ -952,6 +992,12 @@ const setHubFileGuards = (res) => {
 //      bounded, so it cannot be aimed at an internal service and used to walk a
 //      redirect chain or stream something unbounded back.
 const ALLOW_REMOTE_RELAY = process.env.OH_ALLOW_REMOTE_RELAY === "1";
+const RELAY_ALLOWED_HOSTS = new Set(
+  String(process.env.OH_RELAY_ALLOWED_HOSTS || "")
+    .split(",")
+    .map((host) => host.trim().toLowerCase())
+    .filter(Boolean),
+);
 const RELAY_MAX_RESPONSE_BYTES = 64 * 1024 * 1024;
 const RELAY_TIMEOUT_MS = Number(process.env.OH_RELAY_TIMEOUT_MS) || 600000;
 
@@ -988,7 +1034,13 @@ app.post("/api/ai/relay", largeJsonParser, async (req, res) => {
   }, RELAY_TIMEOUT_MS);
 
   try {
-    if (!ALLOW_REMOTE_RELAY && !isLoopbackAddress(req.socket?.remoteAddress)) {
+    const forwardedHost = String(req.get("host") || "").toLowerCase();
+    if (!isAllowedAiRelayCaller({
+      remoteAddress: req.socket?.remoteAddress,
+      host: forwardedHost,
+      allowedHosts: RELAY_ALLOWED_HOSTS,
+      allowRemote: ALLOW_REMOTE_RELAY,
+    })) {
       return sendError(
         res,
         403,
@@ -1396,6 +1448,15 @@ if (fs.existsSync(fmgDistDir)) {
   // generator asks for an image or two the game leaves out, and the SPA
   // fallback would answer each with index.html and a 200.
   app.use("/fmg", (_req, res) => { res.status(404).type("text/plain").send("Not found"); });
+}
+
+app.get("/api/health", (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ ok: true });
+});
+
+if (fs.existsSync(runtimeAssetsDir)) {
+  app.use("/assets", express.static(runtimeAssetsDir));
 }
 
 app.use(express.static(distDir));

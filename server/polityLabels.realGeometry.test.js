@@ -7,7 +7,7 @@ import { aggregatePolityGeometry } from "../src/Game/Map/vnext/polityGeometry.js
 import { buildPolityLabelCollections } from "../src/Game/Map/vnext/polityLabels.js";
 
 const MODERN_REGIONS = JSON.parse(
-  fs.readFileSync(new URL("./seed/default/regions.geojson", import.meta.url), "utf8"),
+  fs.readFileSync(new URL("./test-fixtures/modern-day-regions.geojson", import.meta.url), "utf8"),
 );
 
 const REPRESENTATIVE_OWNERS = Object.freeze([
